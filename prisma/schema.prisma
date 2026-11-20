@@ -1,0 +1,222 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// SQLite represents enums as text columns with validation in Prisma Client
+enum ProjectStatus {
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  ARCHIVED
+}
+
+enum ItemType {
+  TASK
+  BUG
+  FEATURE
+  IMPROVEMENT
+  CHORE
+}
+
+enum Priority {
+  CRITICAL
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum BugSeverity {
+  BLOCKER
+  MAJOR
+  MINOR
+  TRIVIAL
+}
+
+enum BugSource {
+  INTERNAL
+  CLIENT_REPORTED
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  name        String
+  key         String        @unique // e.g. "CRM", "APP"
+  company     String        @default("Company 1")
+  description String?
+  color       String        @default("#3b82f6") // hex color code
+  icon        String        @default("FolderKanban")
+  status      ProjectStatus @default(ACTIVE)
+
+  startDate   DateTime?
+  targetDate  DateTime?
+
+  owner       String        @default("Alex Rivers")
+  members     String        @default("Alex Rivers,Sam Taylor,Jordan Lee")
+
+  itemCounter Int           @default(0)
+
+  stages      Stage[]
+  items       Item[]
+  labels      Label[]
+  milestones  Milestone[]
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model Stage {
+  id          String   @id @default(cuid())
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  name        String
+  order       Int      @default(0)
+  color       String   @default("#64748b")
+  isDoneStage Boolean  @default(false)
+  wipLimit    Int?
+
+  items       Item[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([projectId, order])
+}
+
+model Item {
+  id               String        @id @default(cuid())
+  humanId          String        @unique // e.g. "CRM-42"
+  itemNumber       Int
+
+  projectId        String
+  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  stageId          String
+  stage            Stage         @relation(fields: [stageId], references: [id])
+
+  type             ItemType      @default(TASK)
+  title            String
+  description      String?
+  priority         Priority      @default(MEDIUM)
+
+  assignee         String?
+  reporter         String        @default("Alex Rivers")
+
+  dueDate          DateTime?
+  estimateHours    Float?
+  order            Float         @default(0)
+
+  // Hierarchy: Subtasks & Feature-to-Task breakdown
+  parentId         String?
+  parent           Item?         @relation("ItemHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  subtasks         Item[]        @relation("ItemHierarchy")
+
+  milestoneId      String?
+  milestone        Milestone?    @relation(fields: [milestoneId], references: [id], onDelete: SetNull)
+
+  // Bug-specific fields
+  severity         BugSeverity?
+  stepsToReproduce String?
+  expectedResult   String?
+  actualResult     String?
+  environment      String?
+  source           BugSource?    @default(INTERNAL)
+
+  // Feature-specific fields
+  userStory        String?
+  requestedBy      String?
+
+  // Relations
+  labels           ItemLabel[]
+  checklists       ChecklistItem[]
+  comments         Comment[]
+  attachments      Attachment[]
+  activityLogs     ActivityLog[]
+
+  completedAt      DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+
+  @@index([projectId, stageId, order])
+  @@index([type])
+  @@index([assignee])
+}
+
+model Label {
+  id        String      @id @default(cuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name      String
+  color     String      @default("#64748b")
+  items     ItemLabel[]
+
+  @@unique([projectId, name])
+}
+
+model ItemLabel {
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  labelId   String
+  label     Label    @relation(fields: [labelId], references: [id], onDelete: Cascade)
+
+  @@id([itemId, labelId])
+}
+
+model ChecklistItem {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  text      String
+  isDone    Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Comment {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  author    String
+  body      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Attachment {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  name      String
+  url       String
+  sizeBytes Int?
+  mimeType  String?
+  createdAt DateTime @default(now())
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  author    String   @default("Alex Rivers")
+  action    String
+  fromValue String?
+  toValue   String?
+  createdAt DateTime @default(now())
+}
+
+model Milestone {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  targetDate  DateTime?
+  description String?
+  isCompleted Boolean   @default(false)
+  items       Item[]
+  createdAt   DateTime  @default(now())
+}

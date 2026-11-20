@@ -1,0 +1,26 @@
+services:
+  projectflow:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: projectflow:latest
+    container_name: projectflow
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=file:/app/data/dev.db
+      - SEED_DB=false
+    volumes:
+      # Persistent SQLite database storage
+      - projectflow_data:/app/data
+      # Persistent user uploads (screenshots, audio notes, attachments)
+      - projectflow_uploads:/app/public/uploads
+
+volumes:
+  projectflow_data:
+    driver: local
+  projectflow_uploads:
+    driver: local
