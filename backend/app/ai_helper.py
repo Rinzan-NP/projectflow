@@ -1,6 +1,7 @@
 import os
 import json
 import base64
+import re
 import logging
 import httpx
 from typing import Optional, Dict, Any
@@ -8,16 +9,18 @@ from typing import Optional, Dict, Any
 logger = logging.getLogger("ai_helper")
 
 SYSTEM_PROMPT = """You are an expert Agile Project Manager and QA Engineer AI.
-Analyze the user's input (which can be a screenshot, UI photo, error log, voice note, document, or raw text message).
+Analyze the user's input (which can be a voice note, audio recording, screenshot, UI photo, error log, document, or raw text message).
+If audio or voice note is provided, carefully transcribe and interpret the spoken words.
+
 Extract and structure a project work item into strict JSON format with the following keys:
-- "type": "BUG", "FEATURE", or "TASK". Choose "BUG" if there is an error, crash, visual defect, or unexpected behavior. Choose "FEATURE" if it's a request for new capability, UI enhancement, or user story. Choose "TASK" for chore, setup, or general work.
+- "type": "BUG", "FEATURE", or "TASK". Choose "BUG" if there is an error, crash, freeze, loading issue, visual defect, or unexpected behavior. Choose "FEATURE" if it's a request for new capability, UI enhancement, or user story. Choose "TASK" for chore, setup, or general work.
 - "title": A concise, professional title (under 10 words).
-- "description": A well-structured description. For bugs, include what happened, error message, and steps/screen observed. For features, include user story and acceptance criteria.
+- "description": A well-structured description. For bugs, include what happened, screen observed, and steps. For features, include user story and acceptance criteria.
 - "priority": "CRITICAL", "HIGH", "MEDIUM", or "LOW".
 - "severity": If bug, choose "BLOCKER", "MAJOR", "MINOR", or "TRIVIAL". Otherwise null.
-- "summary": A friendly 1-2 sentence summary explaining what you detected and understood.
+- "summary": A friendly 1-2 sentence summary explaining what you detected and understood from the user's input.
 
-Respond ONLY with valid JSON, without markdown code fences or backticks.
+Respond ONLY with valid JSON, without any markdown formatting or code blocks.
 """
 
 async def analyze_with_gemini(
@@ -26,18 +29,25 @@ async def analyze_with_gemini(
     file_bytes: Optional[bytes] = None,
     mime_type: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    # Use gemini-2.5-flash or gemini-1.5-flash
-    models = ["gemini-2.5-flash", "gemini-1.5-flash"]
+    # Current active multimodal models for Gemini
+    models = [
+        "gemini-flash-lite-latest",
+        "gemini-3.5-flash-lite",
+        "gemini-3.5-flash",
+        "gemini-3.1-flash-lite",
+        "gemini-3.8-flash",
+        "gemini-flash-latest",
+        "gemini-2.5-flash",
+    ]
     parts = []
 
-    prompt_text = text if text else "Analyze the attached content and extract the work item details."
+    prompt_text = text if text else "Listen carefully / analyze the attached content, transcribe if audio, and extract the work item details."
     parts.append({"text": f"{SYSTEM_PROMPT}\n\nUser Input / Request: {prompt_text}"})
 
     if file_bytes and mime_type:
         b64_data = base64.b64encode(file_bytes).decode("utf-8")
-        # Standardize common telegram mime types
         clean_mime = mime_type
-        if "ogg" in mime_type or "audio" in mime_type:
+        if "ogg" in mime_type or "audio" in mime_type or "opus" in mime_type:
             clean_mime = "audio/ogg"
         elif "png" in mime_type:
             clean_mime = "image/png"
@@ -72,14 +82,14 @@ async def analyze_with_gemini(
                         content_parts = candidates[0].get("content", {}).get("parts", [])
                         if content_parts:
                             raw_text = content_parts[0].get("text", "").strip()
-                            # Clean possible codeblock wrappers
-                            if raw_text.startswith("```"):
-                                raw_text = raw_text.strip("`")
-                                if raw_text.startswith("json"):
-                                    raw_text = raw_text[4:].strip()
+                            json_match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+                            if json_match:
+                                parsed = json.loads(json_match.group(0))
+                                logger.info(f"Gemini {model} successfully parsed item: {parsed.get('title')}")
+                                return parsed
                             return json.loads(raw_text)
                 else:
-                    logger.warning(f"Gemini {model} returned HTTP {resp.status_code}: {resp.text}")
+                    logger.warning(f"Gemini {model} returned HTTP {resp.status_code}: {resp.text[:200]}")
             except Exception as e:
                 logger.error(f"Error calling Gemini {model}: {e}")
 
@@ -102,7 +112,7 @@ async def analyze_multimodal_content(
     item_type = "TASK"
     if text:
         lower = text.lower()
-        if any(w in lower for w in ["bug", "error", "fail", "crash", "broken", "issue", "exception", "defect"]):
+        if any(w in lower for w in ["bug", "error", "fail", "crash", "broken", "issue", "exception", "defect", "freeze", "stuck"]):
             item_type = "BUG"
         elif any(w in lower for w in ["feature", "add", "allow", "request", "want", "improve", "support", "new"]):
             item_type = "FEATURE"

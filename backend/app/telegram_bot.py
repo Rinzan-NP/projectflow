@@ -514,8 +514,11 @@ class TelegramBot:
             )
             return
 
-        # If in interactive text-entry states:
-        if state == "ENTER_TITLE":
+        # If user sends media at any point (unless in ATTACH_FILE state), treat as Multimodal AI intake
+        has_media = any(k in msg for k in ("photo", "voice", "audio", "document"))
+
+        # If in interactive text-entry states without media:
+        if state == "ENTER_TITLE" and not has_media:
             if not text:
                 await self.send_message(chat_id, "Please type a title for this item:")
                 return
@@ -528,7 +531,7 @@ class TelegramBot:
             )
             return
 
-        if state == "ENTER_DESCRIPTION":
+        if state == "ENTER_DESCRIPTION" and not has_media:
             session["data"]["description"] = None if text == "/skip" else text
             session["state"] = "ATTACH_FILE"
             USER_SESSIONS[user_id] = session
@@ -680,11 +683,26 @@ class TelegramBot:
             + f"\n👉 <b>Which project should this be added to?</b>"
         )
 
-        await self.send_message(
-            chat_id=chat_id,
-            text=analysis_card,
-            reply_markup={"inline_keyboard": buttons},
-        )
+        status_msg_id = status_msg.get("result", {}).get("message_id") if status_msg else None
+        if status_msg_id:
+            res = await self.edit_message_text(
+                chat_id=chat_id,
+                message_id=status_msg_id,
+                text=analysis_card,
+                reply_markup={"inline_keyboard": buttons},
+            )
+            if not res:
+                await self.send_message(
+                    chat_id=chat_id,
+                    text=analysis_card,
+                    reply_markup={"inline_keyboard": buttons},
+                )
+        else:
+            await self.send_message(
+                chat_id=chat_id,
+                text=analysis_card,
+                reply_markup={"inline_keyboard": buttons},
+            )
 
 
 async def run_bot_polling(token: str):
