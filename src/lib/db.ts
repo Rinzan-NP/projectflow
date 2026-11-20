@@ -1,6 +1,11 @@
 import { PrismaClient } from "@prisma/client";
 import { PrismaLibSql } from "@prisma/adapter-libsql";
 
+// Safeguard for serverless platforms where DATABASE_URL might not be explicitly passed
+if (!process.env.DATABASE_URL) {
+  process.env.DATABASE_URL = "file:./dev.db";
+}
+
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
