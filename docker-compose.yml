@@ -1,26 +1,36 @@
 services:
-  projectflow:
+  backend:
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile
-    image: projectflow:latest
-    container_name: projectflow
+    image: projectflow-backend:latest
+    container_name: projectflow_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+      - DATABASE_URL=sqlite:///./data/dev.db
+    volumes:
+      - backend_data:/app/data
+      - backend_uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    image: projectflow-frontend:latest
+    container_name: projectflow_frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=file:/app/data/dev.db
-      - SEED_DB=false
-    volumes:
-      # Persistent SQLite database storage
-      - projectflow_data:/app/data
-      # Persistent user uploads (screenshots, audio notes, attachments)
-      - projectflow_uploads:/app/public/uploads
+      - BACKEND_URL=http://backend:8000
+    depends_on:
+      - backend
 
 volumes:
-  projectflow_data:
-    driver: local
-  projectflow_uploads:
-    driver: local
+  backend_data:
+  backend_uploads:
