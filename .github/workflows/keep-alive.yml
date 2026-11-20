@@ -12,12 +12,12 @@ jobs:
     steps:
       - name: Ping Backend Health Endpoint
         run: |
-          URL="${{ secrets.BACKEND_URL || 'https://project.rinzan.me/api/health' }}"
-          echo "Pinging $URL to keep service awake..."
+          URL="https://projectflow-api-sgm3.onrender.com/api/health"
+          echo "Pinging $URL to keep Render backend awake..."
           RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
           echo "HTTP Status Code: $RESPONSE"
           if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 400 ]; then
-            echo "Service is awake and healthy!"
+            echo "Render backend is awake and healthy!"
           else
             echo "Ping sent (Status: $RESPONSE)"
           fi
