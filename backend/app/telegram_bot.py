@@ -1,5 +1,6 @@
 import os
 import time
+import socket
 import asyncio
 import logging
 from typing import Dict, Any, Optional
@@ -8,6 +9,14 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from .database import SessionLocal
 from .models import Project, Stage, Item, Attachment
+
+# Force IPv4 resolution for Telegram to prevent dual-stack IPv6 socket hanging
+_orig_getaddrinfo = socket.getaddrinfo
+def _getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    if host and "telegram.org" in str(host):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+socket.getaddrinfo = _getaddrinfo_ipv4
 
 logger = logging.getLogger("telegram_bot")
 logger.setLevel(logging.INFO)

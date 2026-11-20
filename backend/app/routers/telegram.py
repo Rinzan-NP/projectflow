@@ -1,7 +1,16 @@
 import os
+import socket
 from fastapi import APIRouter, Request, HTTPException
 import httpx
 from ..telegram_bot import TelegramBot
+
+# Force IPv4 resolution for Telegram to prevent dual-stack IPv6 socket hanging
+_orig_getaddrinfo = socket.getaddrinfo
+def _getaddrinfo_ipv4(host, port, family=0, type=0, proto=0, flags=0):
+    if host and "telegram.org" in str(host):
+        return _orig_getaddrinfo(host, port, socket.AF_INET, type, proto, flags)
+    return _orig_getaddrinfo(host, port, family, type, proto, flags)
+socket.getaddrinfo = _getaddrinfo_ipv4
 
 router = APIRouter(prefix="/api/telegram", tags=["telegram"])
 
