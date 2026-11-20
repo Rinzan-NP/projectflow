@@ -9,6 +9,7 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from .database import SessionLocal
 from .models import Project, Stage, Item, Attachment
+from .ai_helper import analyze_multimodal_content
 
 # Force IPv4 resolution for Telegram to prevent dual-stack IPv6 socket hanging
 _orig_getaddrinfo = socket.getaddrinfo
@@ -38,7 +39,8 @@ class TelegramBot:
 
     async def init_client(self):
         if not self.client or self.client.is_closed:
-            self.client = httpx.AsyncClient(timeout=40.0)
+            timeout_cfg = httpx.Timeout(connect=15.0, read=45.0, write=15.0, pool=15.0)
+            self.client = httpx.AsyncClient(timeout=timeout_cfg)
 
     async def close(self):
         self.is_running = False
@@ -140,6 +142,8 @@ class TelegramBot:
         title: str,
         item_type: str = "TASK",
         description: Optional[str] = None,
+        priority: str = "MEDIUM",
+        severity: Optional[str] = None,
         file_tuple: Optional[tuple[str, bytes, str]] = None, # (filename, bytes, mime_type)
     ) -> Optional[tuple[Item, Optional[Attachment]]]:
         db: Session = SessionLocal()
@@ -152,7 +156,6 @@ class TelegramBot:
             if not stage:
                 return None
 
-            # Increment item counter
             project.itemCounter += 1
             item_num = project.itemCounter
             human_id = f"{project.key}-{item_num}"
@@ -174,8 +177,8 @@ class TelegramBot:
                 type=item_type.upper(),
                 title=title.strip(),
                 description=description.strip() if description else None,
-                priority="HIGH" if item_type.upper() == "BUG" else "MEDIUM",
-                severity="MAJOR" if item_type.upper() == "BUG" else None,
+                priority=priority or ("HIGH" if item_type.upper() == "BUG" else "MEDIUM"),
+                severity=severity if item_type.upper() == "BUG" else None,
                 source="CLIENT_REPORTED" if item_type.upper() == "BUG" else None,
                 order=order,
                 completedAt=completed_at,
@@ -215,12 +218,10 @@ class TelegramBot:
             db.close()
 
     async def handle_update(self, update: Dict[str, Any]):
-        # Handle Callback Queries (inline keyboard taps)
         if "callback_query" in update:
             await self.handle_callback(update["callback_query"])
             return
 
-        # Handle Messages (text, photo, document)
         if "message" in update:
             await self.handle_message(update["message"])
 
@@ -237,10 +238,59 @@ class TelegramBot:
 
         session = USER_SESSIONS.get(user_id, {"state": "IDLE", "data": {}})
 
+        # Cancel
+        if data == "cancel":
+            USER_SESSIONS[user_id] = {"state": "IDLE", "data": {}}
+            await self.edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text="❌ <b>Action cancelled.</b> Send a screenshot, audio note, or /new anytime.",
+            )
+            return
+
         # 1. Project Selected: "p_AU"
         if data.startswith("p_"):
             project_key = data.replace("p_", "")
             session["data"]["project_key"] = project_key
+
+            # If title is already provided (e.g. from AI Multimodal analysis), skip type selection and ask stage directly!
+            if session["data"].get("title"):
+                session["state"] = "SELECT_STAGE"
+                USER_SESSIONS[user_id] = session
+
+                _, stages = self.get_project_stages(project_key)
+                if not stages:
+                    await self.send_message(chat_id, "⚠️ No stages found for this project.")
+                    return
+
+                stage_buttons = []
+                row = []
+                for s in stages:
+                    row.append({"text": s.name, "callback_data": f"s_{s.id}"})
+                    if len(row) == 2:
+                        stage_buttons.append(row)
+                        row = []
+                if row:
+                    stage_buttons.append(row)
+                stage_buttons.append([{"text": "❌ Cancel", "callback_data": "cancel"}])
+
+                type_icons = {"BUG": "🐛 Bug", "FEATURE": "✨ Feature", "TASK": "📋 Task"}
+                display_type = type_icons.get(session["data"].get("item_type"), "Item")
+
+                await self.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=(
+                        f"📁 <b>Project:</b> <code>{project_key}</code>\n"
+                        f"🏷 <b>Type:</b> {display_type}\n"
+                        f"📌 <b>Title:</b> <b>{session['data'].get('title')}</b>\n\n"
+                        "<b>👉 Select Workflow Stage to Add To:</b>"
+                    ),
+                    reply_markup={"inline_keyboard": stage_buttons},
+                )
+                return
+
+            # Otherwise, standard manual flow: ask Type
             session["state"] = "SELECT_TYPE"
             USER_SESSIONS[user_id] = session
 
@@ -259,7 +309,7 @@ class TelegramBot:
                 message_id=message_id,
                 text=(
                     f"📁 <b>Project Selected:</b> <code>{project_key}</code>\n\n"
-                    "<b>Step 2/5: Select Work Item Type:</b>"
+                    "<b>Select Work Item Type:</b>"
                 ),
                 reply_markup=keyboard,
             )
@@ -275,18 +325,10 @@ class TelegramBot:
             project_key = session["data"].get("project_key", "")
             _, stages = self.get_project_stages(project_key)
 
-            if not stages:
-                await self.send_message(
-                    chat_id=chat_id,
-                    text="⚠️ No workflow stages found for this project. Please configure stages first.",
-                )
-                session["state"] = "IDLE"
-                return
-
             stage_buttons = []
             row = []
             for s in stages:
-                row.append({"text": f"{s.name}", "callback_data": f"s_{s.id}"})
+                row.append({"text": s.name, "callback_data": f"s_{s.id}"})
                 if len(row) == 2:
                     stage_buttons.append(row)
                     row = []
@@ -303,8 +345,7 @@ class TelegramBot:
                 text=(
                     f"📁 <b>Project:</b> <code>{project_key}</code>\n"
                     f"🏷 <b>Type:</b> {display_type}\n\n"
-                    "<b>Step 3/5: Select Workflow Stage:</b>\n"
-                    "Choose which column this item should start in:"
+                    "<b>Select Workflow Stage:</b>"
                 ),
                 reply_markup={"inline_keyboard": stage_buttons},
             )
@@ -319,6 +360,69 @@ class TelegramBot:
 
             session["data"]["stage_id"] = stage_id
             session["data"]["stage_name"] = stage_name
+
+            # If title is ALREADY extracted (from AI Multimodal Analysis), create immediately!
+            if session["data"].get("title"):
+                p_data = session["data"]
+                res = self.create_work_item(
+                    project_key=p_data["project_key"],
+                    stage_id=p_data["stage_id"],
+                    title=p_data["title"],
+                    item_type=p_data.get("item_type", "TASK"),
+                    description=p_data.get("description"),
+                    priority=p_data.get("priority", "MEDIUM"),
+                    severity=p_data.get("severity"),
+                    file_tuple=p_data.get("file_tuple"),
+                )
+
+                USER_SESSIONS[user_id] = {"state": "IDLE", "data": {}}
+
+                if not res:
+                    await self.send_message(chat_id, "❌ Failed to create item in database.")
+                    return
+
+                item, attachment = res
+                type_icons = {"BUG": "🐛 Bug", "FEATURE": "✨ Feature", "TASK": "📋 Task"}
+                type_label = type_icons.get(item.type, item.type)
+
+                desc_snippet = (
+                    f"\n📝 <b>Description:</b> {item.description}"
+                    if item.description
+                    else ""
+                )
+                att_snippet = (
+                    f"\n📎 <b>Attachment:</b> {attachment.name} ({(attachment.sizeBytes / 1024):.1f} KB)"
+                    if attachment
+                    else ""
+                )
+                board_url = f"{WEB_URL}/projects/{p_data['project_key']}/board"
+
+                success_text = (
+                    f"✅ <b>{type_label} Created Successfully!</b>\n\n"
+                    f"🏷 <b>ID:</b> <code>{item.humanId}</code>\n"
+                    f"📌 <b>Title:</b> <b>{item.title}</b>\n"
+                    f"📁 <b>Project:</b> <code>{p_data['project_key']}</code>\n"
+                    f"📊 <b>Stage:</b> {stage_name}"
+                    f"{desc_snippet}"
+                    f"{att_snippet}\n\n"
+                    f"🔗 <a href='{board_url}'>View on Kanban Board</a>\n\n"
+                    "Send another image, audio note, or text message anytime!"
+                )
+
+                keyboard = {
+                    "inline_keyboard": [
+                        [{"text": "🌐 Open Kanban Board", "url": board_url}],
+                    ]
+                }
+                await self.edit_message_text(
+                    chat_id=chat_id,
+                    message_id=message_id,
+                    text=success_text,
+                    reply_markup=keyboard,
+                )
+                return
+
+            # Otherwise (manual creation flow), prompt for title
             session["state"] = "ENTER_TITLE"
             USER_SESSIONS[user_id] = session
 
@@ -332,19 +436,8 @@ class TelegramBot:
                     f"📁 <b>Project:</b> <code>{project_key}</code>\n"
                     f"🏷 <b>Type:</b> {display_type}\n"
                     f"📊 <b>Stage:</b> {stage_name}\n\n"
-                    "<b>Step 4/5: Item Title</b>\n\n"
                     "✏️ Please type the <b>Title / Summary</b> for this item:"
                 ),
-            )
-            return
-
-        # 4. Cancel
-        if data == "cancel":
-            USER_SESSIONS[user_id] = {"state": "IDLE", "data": {}}
-            await self.edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text="❌ <b>Action cancelled.</b> Send /new to create an item anytime.",
             )
             return
 
@@ -353,6 +446,7 @@ class TelegramBot:
         from_user = msg.get("from", {})
         user_id = from_user.get("id", chat_id)
         text = msg.get("text", "").strip()
+        caption = msg.get("caption", "").strip()
 
         session = USER_SESSIONS.get(user_id, {"state": "IDLE", "data": {}})
         state = session.get("state", "IDLE")
@@ -361,7 +455,7 @@ class TelegramBot:
         if text == "/cancel":
             USER_SESSIONS[user_id] = {"state": "IDLE", "data": {}}
             await self.send_message(
-                chat_id, "❌ Creation cancelled. Send /new to start creating a new work item."
+                chat_id, "❌ Action cancelled. Send any screenshot, audio note, or /new to start again."
             )
             return
 
@@ -382,24 +476,28 @@ class TelegramBot:
         if text == "/help":
             await self.send_message(
                 chat_id,
-                "🤖 <b>ProjectFlow Telegram Bot</b>\n\n"
-                "Commands:\n"
-                "• <b>/new</b> — Create a new Bug, Task, or Feature with stage & attachments\n"
-                "• <b>/projects</b> — View list of active projects and direct links\n"
-                "• <b>/cancel</b> — Cancel current item creation wizard\n\n"
-                "You can also attach screenshots, photos, documents, and voice notes directly when prompted!",
+                "🤖 <b>ProjectFlow Multimodal AI Bot</b>\n\n"
+                "You can interact with me in two ways:\n\n"
+                "1. 🧠 <b>Multimodal AI Mode (Zero friction):</b>\n"
+                "• Send a <b>Screenshot or Photo</b> of a bug or UI\n"
+                "• Send a <b>Voice Note or Audio message</b> describing a task or feature\n"
+                "• Send a <b>Document, error log, or PDF</b>\n"
+                "• Or just type a <b>Message</b> explaining what to build or fix\n\n"
+                "AI will analyze the content, auto-generate title & description, attach the file, and ask you which Project & Stage to put it in!\n\n"
+                "2. 📋 <b>Step-by-Step Mode:</b>\n"
+                "• Send <b>/new</b> to follow manual step-by-step wizard\n"
+                "• Send <b>/projects</b> to see all projects and board links\n"
+                "• Send <b>/cancel</b> to reset",
             )
             return
 
-        # Start or /new
-        if text in ("/start", "/new") or state == "IDLE":
+        # Explicit /new wizard
+        if text == "/new":
             projects = self.get_projects()
             if not projects:
                 await self.send_message(
                     chat_id,
-                    "👋 <b>Welcome to ProjectFlow!</b>\n\n"
-                    "No projects found yet. Please create a project on the web first: "
-                    f"<a href='{WEB_URL}'>{WEB_URL}</a>",
+                    f"No projects found yet. Please create one on <a href='{WEB_URL}'>{WEB_URL}</a>",
                 )
                 return
 
@@ -411,64 +509,43 @@ class TelegramBot:
             USER_SESSIONS[user_id] = {"state": "SELECT_PROJECT", "data": {}}
             await self.send_message(
                 chat_id=chat_id,
-                text=(
-                    "👋 <b>Welcome to ProjectFlow Bot!</b>\n\n"
-                    "Let's create a new work item.\n\n"
-                    "<b>Step 1/5: Select Project:</b>"
-                ),
+                text="<b>Step 1/5: Select Project:</b>",
                 reply_markup={"inline_keyboard": buttons},
             )
             return
 
-        # STATE: ENTER_TITLE
+        # If in interactive text-entry states:
         if state == "ENTER_TITLE":
             if not text:
-                await self.send_message(chat_id, "Please type a text title for this item:")
+                await self.send_message(chat_id, "Please type a title for this item:")
                 return
-
             session["data"]["title"] = text
             session["state"] = "ENTER_DESCRIPTION"
             USER_SESSIONS[user_id] = session
-
             await self.send_message(
-                chat_id=chat_id,
-                text=(
-                    f"📝 <b>Title:</b> {text}\n\n"
-                    "<b>Step 5: Description & Attachments</b>\n\n"
-                    "Enter a <b>Description</b> (or send /skip to proceed without description):"
-                ),
+                chat_id,
+                f"📝 <b>Title:</b> {text}\n\nNow enter a <b>Description</b> (or send /skip):",
             )
             return
 
-        # STATE: ENTER_DESCRIPTION
         if state == "ENTER_DESCRIPTION":
-            description = None if text == "/skip" else text
-            session["data"]["description"] = description
+            session["data"]["description"] = None if text == "/skip" else text
             session["state"] = "ATTACH_FILE"
             USER_SESSIONS[user_id] = session
-
             await self.send_message(
-                chat_id=chat_id,
-                text=(
-                    "📎 <b>Attach File or Screenshot</b>\n\n"
-                    "Send a photo, screenshot, document, or audio note now.\n"
-                    "Or send <code>/skip</code> to create the item immediately without attachments."
-                ),
+                chat_id,
+                "📎 <b>Attach File:</b> Send a photo, document, or audio (or /skip to finish):",
             )
             return
 
-        # STATE: ATTACH_FILE
         if state == "ATTACH_FILE":
             file_tuple = None
-
-            # Handle File attachment
             if text != "/skip":
                 file_id = None
                 orig_filename = "attachment"
                 mime_type = "application/octet-stream"
 
                 if "photo" in msg:
-                    # Telegram sends multiple photo sizes, pick the largest (highest resolution)
                     photo = msg["photo"][-1]
                     file_id = photo["file_id"]
                     orig_filename = f"screenshot_{int(time.time())}.jpg"
@@ -485,13 +562,11 @@ class TelegramBot:
                     mime_type = "audio/ogg"
 
                 if file_id:
-                    status_msg = await self.send_message(chat_id, "⏳ Downloading attachment...")
-                    dl_result = await self.download_file(file_id)
-                    if dl_result:
-                        _, content = dl_result
+                    dl = await self.download_file(file_id)
+                    if dl:
+                        _, content = dl
                         file_tuple = (orig_filename, content, mime_type)
 
-            # Create the Item now!
             p_data = session["data"]
             res = self.create_work_item(
                 project_key=p_data["project_key"],
@@ -501,50 +576,115 @@ class TelegramBot:
                 description=p_data.get("description"),
                 file_tuple=file_tuple,
             )
-
             USER_SESSIONS[user_id] = {"state": "IDLE", "data": {}}
-
-            if not res:
+            if res:
+                item, attachment = res
+                board_url = f"{WEB_URL}/projects/{p_data['project_key']}/board"
                 await self.send_message(
-                    chat_id, "❌ Failed to create work item in database. Please try again."
+                    chat_id,
+                    f"✅ <b>Created {item.humanId}: {item.title}</b>\n🔗 <a href='{board_url}'>View Board</a>",
                 )
-                return
+            return
 
-            item, attachment = res
-            type_icons = {"BUG": "🐛 Bug", "FEATURE": "✨ Feature", "TASK": "📋 Task"}
-            type_label = type_icons.get(item.type, item.type)
+        # =========================================================================
+        # MULTIMODAL AI INTAKE (State == IDLE or unprompted media / message)
+        # =========================================================================
+        file_bytes = None
+        file_mime = None
+        orig_filename = None
+        media_type_label = "message"
 
-            desc_snippet = (
-                f"\n📝 <b>Description:</b> {item.description}"
-                if item.description
-                else ""
-            )
-            att_snippet = (
-                f"\n📎 <b>Attachment:</b> {attachment.name} ({(attachment.sizeBytes / 1024):.1f} KB)"
-                if attachment
-                else ""
-            )
-            board_url = f"{WEB_URL}/projects/{p_data['project_key']}/board"
+        if "photo" in msg:
+            media_type_label = "screenshot"
+            photo = msg["photo"][-1]
+            dl = await self.download_file(photo["file_id"])
+            if dl:
+                orig_filename, file_bytes = dl
+                file_mime = "image/jpeg"
+        elif "voice" in msg:
+            media_type_label = "voice note"
+            v = msg["voice"]
+            dl = await self.download_file(v["file_id"])
+            if dl:
+                orig_filename = f"voice_{int(time.time())}.ogg"
+                _, file_bytes = dl
+                file_mime = "audio/ogg"
+        elif "audio" in msg:
+            media_type_label = "audio"
+            aud = msg["audio"]
+            dl = await self.download_file(aud["file_id"])
+            if dl:
+                orig_filename = aud.get("file_name", f"audio_{int(time.time())}.mp3")
+                _, file_bytes = dl
+                file_mime = aud.get("mime_type", "audio/mpeg")
+        elif "document" in msg:
+            media_type_label = "document"
+            doc = msg["document"]
+            dl = await self.download_file(doc["file_id"])
+            if dl:
+                orig_filename = doc.get("file_name", "document")
+                _, file_bytes = dl
+                file_mime = doc.get("mime_type", "application/octet-stream")
 
-            success_text = (
-                f"✅ <b>{type_label} Created Successfully!</b>\n\n"
-                f"🏷 <b>ID:</b> <code>{item.humanId}</code>\n"
-                f"📌 <b>Title:</b> <b>{item.title}</b>\n"
-                f"📁 <b>Project:</b> <code>{p_data['project_key']}</code>\n"
-                f"📊 <b>Stage:</b> {p_data['stage_name']}"
-                f"{desc_snippet}"
-                f"{att_snippet}\n\n"
-                f"🔗 <a href='{board_url}'>View on Kanban Board</a>\n\n"
-                "Send /new anytime to create another item."
-            )
+        user_content_text = caption if caption else text
 
-            keyboard = {
-                "inline_keyboard": [
-                    [{"text": "🌐 Open Kanban Board", "url": board_url}],
-                    [{"text": "➕ Create Another Item", "callback_data": f"p_{p_data['project_key']}"}],
-                ]
-            }
-            await self.send_message(chat_id, success_text, reply_markup=keyboard)
+        if not file_bytes and not user_content_text:
+            return
+
+        status_msg = await self.send_message(
+            chat_id, f"🧠 <i>Analyzing {media_type_label} with Gemini Multimodal AI...</i>"
+        )
+
+        ai_result = await analyze_multimodal_content(
+            text=user_content_text,
+            file_bytes=file_bytes,
+            mime_type=file_mime,
+            original_filename=orig_filename,
+        )
+
+        projects = self.get_projects()
+        if not projects:
+            await self.send_message(chat_id, "No active projects available.")
+            return
+
+        # Store in session
+        file_tuple = (orig_filename, file_bytes, file_mime) if (file_bytes and orig_filename and file_mime) else None
+
+        USER_SESSIONS[user_id] = {
+            "state": "SELECT_PROJECT",
+            "data": {
+                "title": ai_result.get("title", "New Work Item"),
+                "description": ai_result.get("description"),
+                "item_type": ai_result.get("type", "TASK"),
+                "priority": ai_result.get("priority", "MEDIUM"),
+                "severity": ai_result.get("severity"),
+                "file_tuple": file_tuple,
+            },
+        }
+
+        # Build Project selector buttons
+        buttons = []
+        for p in projects:
+            buttons.append([{"text": f"{p.name} ({p.key})", "callback_data": f"p_{p.key}"}])
+        buttons.append([{"text": "❌ Cancel", "callback_data": "cancel"}])
+
+        type_icons = {"BUG": "🐛 Bug", "FEATURE": "✨ Feature", "TASK": "📋 Task"}
+        display_type = type_icons.get(ai_result.get("type"), "Item")
+
+        analysis_card = (
+            f"🧠 <b>AI Content Analysis:</b>\n\n"
+            f"🏷 <b>Detected Type:</b> {display_type}\n"
+            f"📌 <b>Title:</b> <b>{ai_result.get('title')}</b>\n"
+            f"📝 <b>Description:</b> <i>{ai_result.get('description', '')[:250]}</i>\n"
+            + (f"📎 <b>Attached File:</b> {orig_filename}\n" if orig_filename else "")
+            + f"\n👉 <b>Which project should this be added to?</b>"
+        )
+
+        await self.send_message(
+            chat_id=chat_id,
+            text=analysis_card,
+            reply_markup={"inline_keyboard": buttons},
+        )
 
 
 async def run_bot_polling(token: str):
@@ -554,11 +694,9 @@ async def run_bot_polling(token: str):
     offset = 0
     logger.info("Telegram Bot started in polling mode...")
 
-    # Long polling timeout configuration
     timeout_cfg = httpx.Timeout(connect=15.0, read=45.0, write=15.0, pool=15.0)
     bot.client = httpx.AsyncClient(timeout=timeout_cfg)
 
-    # Delete webhook if previously set to ensure polling works
     try:
         await bot.client.post(f"{bot.api_url}/deleteWebhook")
     except Exception:
@@ -576,10 +714,8 @@ async def run_bot_polling(token: str):
                     offset = max(offset, update["update_id"] + 1)
                     asyncio.create_task(bot.handle_update(update))
             else:
-                logger.warning(f"Telegram getUpdates response not ok: {data}")
                 await asyncio.sleep(2)
         except (httpx.TimeoutException, asyncio.TimeoutError):
-            # Normal long-polling cycle completed with no new messages
             continue
         except asyncio.CancelledError:
             break
