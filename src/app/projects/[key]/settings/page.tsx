@@ -14,6 +14,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ColorPicker } from "@/components/shared/ColorPicker";
 import { Input } from "@/components/ui/input";
 
 interface Stage {
@@ -276,13 +277,19 @@ export default function ProjectSettingsPage({
                     {idx + 1}
                   </span>
 
-                  {/* Color circle */}
-                  <div className="relative group">
+                  {/* Color circle with interactive color picker */}
+                  <label className="relative cursor-pointer group" title="Click to change stage color">
                     <span
-                      className="block h-5 w-5 rounded-full border shadow-xs"
+                      className="block h-5 w-5 rounded-full border shadow-xs transition-transform group-hover:scale-110"
                       style={{ backgroundColor: stage.color }}
                     />
-                  </div>
+                    <input
+                      type="color"
+                      value={stage.color || "#64748b"}
+                      onChange={(e) => handleStageChange(stage.id, "color", e.target.value)}
+                      className="opacity-0 absolute inset-0 w-full h-full cursor-pointer"
+                    />
+                  </label>
 
                   {/* Stage Name */}
                   <Input
@@ -403,23 +410,16 @@ export default function ProjectSettingsPage({
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-2">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-muted-foreground">Color:</span>
-              <div className="flex items-center gap-1.5">
-                {PRESET_STAGE_COLORS.map((c) => (
-                  <button
-                    type="button"
-                    key={c}
-                    onClick={() => setNewStageColor(c)}
-                    className={`h-5 w-5 rounded-full border transition-transform cursor-pointer ${
-                      newStageColor === c ? "scale-125 border-foreground shadow-xs" : "border-transparent"
-                    }`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
-            </div>
+          <div className="pt-2">
+            <ColorPicker
+              label="Stage Accent Color"
+              value={newStageColor}
+              onChange={setNewStageColor}
+              size="sm"
+            />
+          </div>
+
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-1">
 
             <div className="flex items-center gap-4">
               <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">

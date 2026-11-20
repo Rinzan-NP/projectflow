@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { X, FolderPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ColorPicker } from "@/components/shared/ColorPicker";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 
@@ -188,24 +189,11 @@ export function CreateProjectModal({
             />
           </div>
 
-          <div>
-            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">
-              Accent Color
-            </label>
-            <div className="flex items-center gap-2">
-              {PRESET_COLORS.map((c) => (
-                <button
-                  type="button"
-                  key={c}
-                  onClick={() => setColor(c)}
-                  className={`h-7 w-7 rounded-full border-2 transition-transform cursor-pointer ${
-                    color === c ? "scale-110 border-foreground shadow-xs" : "border-transparent hover:scale-105"
-                  }`}
-                  style={{ backgroundColor: c }}
-                />
-              ))}
-            </div>
-          </div>
+          <ColorPicker
+            label="Accent Color"
+            value={color}
+            onChange={setColor}
+          />
 
           <div className="pt-3 flex justify-end gap-2 border-t">
             <Button
