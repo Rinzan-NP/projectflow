@@ -1,20 +1,22 @@
 "use client";
 
-import React, { useState, useEffect, use, useMemo } from "react";
+import React, { useState, useEffect, use, useMemo, useRef } from "react";
 import {
   Sparkles,
   Plus,
+  Compass,
+  ArrowRight,
+  UserCheck,
   CheckCircle2,
   Calendar,
-  Layers,
-  ArrowRight,
-  ListCheck,
+  X,
+  Upload,
+  FileText,
+  Trash2,
 } from "lucide-react";
 import { ItemWithRelations, Stage } from "@/lib/types";
-import { Avatar } from "@/components/shared/Avatar";
-import { PriorityIcon } from "@/components/shared/PriorityIcon";
 import { ItemDetailModal } from "@/components/item-detail/ItemDetailModal";
-import { formatDate } from "@/lib/utils";
+import { Avatar } from "@/components/shared/Avatar";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -32,11 +34,14 @@ export default function RoadmapPage({
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ItemWithRelations | null>(null);
 
-  // Propose feature modal
+  // Propose modal state
   const [isProposeOpen, setIsProposeOpen] = useState(false);
+  const [selectedStageId, setSelectedStageId] = useState("");
   const [title, setTitle] = useState("");
   const [userStory, setUserStory] = useState("");
   const [requestedBy, setRequestedBy] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchData = async () => {
@@ -46,6 +51,9 @@ export default function RoadmapPage({
         fetch(`/api/projects/${projectKey}/items?type=FEATURE`).then((r) => r.json()),
       ]);
       setStages(stagesRes);
+      if (stagesRes.length > 0 && !selectedStageId) {
+        setSelectedStageId(stagesRes[0].id);
+      }
       setFeatures(itemsRes);
     } catch (err) {
       console.error(err);
@@ -58,21 +66,34 @@ export default function RoadmapPage({
     fetchData();
   }, [projectKey]);
 
-  // Group features by stage
+  // Map features by stage
   const featuresByStage = useMemo(() => {
-    const map: Record<string, ItemWithRelations[]> = {};
-    stages.forEach((s) => {
-      map[s.id] = [];
-    });
+    const map = new Map<string, ItemWithRelations[]>();
+    stages.forEach((s) => map.set(s.id, []));
     features.forEach((f) => {
-      if (map[f.stageId]) map[f.stageId].push(f);
+      const arr = map.get(f.stageId) || [];
+      arr.push(f);
+      map.set(f.stageId, arr);
     });
     return map;
   }, [stages, features]);
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const newFiles = Array.from(e.target.files);
+      setAttachedFiles((prev) => [...prev, ...newFiles]);
+    }
+    e.target.value = "";
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleProposeFeature = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || submitting) return;
+    const targetStageId = selectedStageId || stages[0]?.id;
+    if (!title.trim() || !targetStageId || submitting) return;
 
     setSubmitting(true);
     try {
@@ -82,7 +103,7 @@ export default function RoadmapPage({
         body: JSON.stringify({
           title: title.trim(),
           type: "FEATURE",
-          stageId: stages[0]?.id,
+          stageId: targetStageId,
           priority: "MEDIUM",
           userStory: userStory.trim() || null,
           requestedBy: requestedBy.trim() || null,
@@ -90,10 +111,29 @@ export default function RoadmapPage({
       });
 
       if (res.ok) {
+        const createdItem = await res.json();
+
+        if (attachedFiles.length > 0 && createdItem.id) {
+          for (const file of attachedFiles) {
+            try {
+              const formData = new FormData();
+              formData.append("file", file);
+              formData.append("itemId", createdItem.id);
+              await fetch("/api/upload", {
+                method: "POST",
+                body: formData,
+              });
+            } catch (err) {
+              console.error("Upload error:", err);
+            }
+          }
+        }
+
         setIsProposeOpen(false);
         setTitle("");
         setUserStory("");
         setRequestedBy("");
+        setAttachedFiles([]);
         fetchData();
       }
     } catch (err) {
@@ -118,7 +158,10 @@ export default function RoadmapPage({
         </div>
 
         <Button
-          onClick={() => setIsProposeOpen(true)}
+          onClick={() => {
+            if (stages.length > 0 && !selectedStageId) setSelectedStageId(stages[0].id);
+            setIsProposeOpen(true);
+          }}
           className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm font-semibold"
         >
           <Plus className="h-4 w-4" />
@@ -129,89 +172,100 @@ export default function RoadmapPage({
       {/* Feature Timeline Columns / Stages */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {stages.map((stage) => {
-          const stageFeatures = featuresByStage[stage.id] || [];
+          const list = featuresByStage.get(stage.id) || [];
 
           return (
             <div
               key={stage.id}
-              className="bg-card border rounded-xl p-4 shadow-xs flex flex-col"
+              className="flex flex-col rounded-xl border bg-card/60 shadow-2xs overflow-hidden"
             >
-              <div className="flex items-center justify-between pb-3 border-b mb-3">
+              {/* Stage Header */}
+              <div className="flex items-center justify-between p-3.5 border-b bg-card">
                 <div className="flex items-center gap-2">
                   <span
                     className="h-2.5 w-2.5 rounded-full"
                     style={{ backgroundColor: stage.color }}
                   />
-                  <h3 className="text-xs font-bold text-foreground">{stage.name}</h3>
-                  <span className="text-[11px] font-mono px-1.5 py-0.2 rounded-full bg-muted text-muted-foreground font-semibold">
-                    {stageFeatures.length}
-                  </span>
+                  <h3 className="text-xs font-bold text-foreground tracking-tight">
+                    {stage.name}
+                  </h3>
                 </div>
+                <span className="text-[11px] font-mono font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
+                  {list.length} features
+                </span>
               </div>
 
-              <div className="space-y-3 flex-1 overflow-y-auto max-h-[500px]">
-                {stageFeatures.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-8 text-center">
-                    No features in {stage.name.toLowerCase()}.
-                  </p>
+              {/* Items List */}
+              <div className="p-3 space-y-3 min-h-[160px] flex-1 overflow-y-auto">
+                {list.length === 0 ? (
+                  <div className="h-32 flex items-center justify-center text-xs text-muted-foreground/60 border border-dashed rounded-lg">
+                    No features in {stage.name}
+                  </div>
                 ) : (
-                  stageFeatures.map((feat) => {
-                    const checklistTotal = feat.checklists?.length || 0;
-                    const checklistDone = feat.checklists?.filter((c) => c.isDone).length || 0;
-                    const subtaskCount = feat.subtasks?.length || 0;
+                  list.map((feat) => {
+                    const completedSubtasks =
+                      feat.subtasks?.filter((st: any) => st.stage?.isDoneStage).length || 0;
+                    const totalSubtasks = feat.subtasks?.length || 0;
+                    const subtaskPercent =
+                      totalSubtasks > 0
+                        ? Math.round((completedSubtasks / totalSubtasks) * 100)
+                        : 0;
 
                     return (
                       <div
                         key={feat.id}
                         onClick={() => setSelectedItem(feat)}
-                        className="p-3.5 rounded-lg border bg-background/50 hover:bg-background hover:border-purple-500/40 transition-all cursor-pointer space-y-2 shadow-2xs"
+                        className="p-3.5 rounded-lg border bg-card hover:border-purple-500/50 transition-all cursor-pointer shadow-2xs space-y-2.5 hover:-translate-y-0.5"
                       >
-                        <div className="flex items-center justify-between">
-                          <span className="font-mono text-xs font-bold text-purple-500">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-mono font-bold text-purple-600 dark:text-purple-400">
                             {feat.humanId}
                           </span>
-                          <PriorityIcon priority={feat.priority} />
+                          {feat.requestedBy && (
+                            <span className="text-[10px] bg-purple-500/10 text-purple-600 dark:text-purple-400 px-1.5 py-0.5 rounded font-medium truncate max-w-[140px]">
+                              Req: {feat.requestedBy}
+                            </span>
+                          )}
                         </div>
 
-                        <h4 className="text-xs font-semibold text-foreground">
+                        <h4 className="text-xs font-bold text-foreground leading-snug">
                           {feat.title}
                         </h4>
 
                         {feat.userStory && (
-                          <p className="text-[11px] text-muted-foreground line-clamp-2 italic bg-muted/30 p-2 rounded">
-                            "{feat.userStory}"
+                          <p className="text-[11px] text-muted-foreground italic line-clamp-2 bg-muted/30 p-1.5 rounded">
+                            &ldquo;{feat.userStory}&rdquo;
                           </p>
                         )}
 
-                        {feat.requestedBy && (
-                          <div className="text-[10px] text-purple-600 dark:text-purple-400 font-medium">
-                            Req by: {feat.requestedBy}
+                        {/* Subtasks Progress Bar */}
+                        {totalSubtasks > 0 && (
+                          <div className="space-y-1 pt-1">
+                            <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                              <span>Subtasks ({completedSubtasks}/{totalSubtasks})</span>
+                              <span className="font-mono font-bold">{subtaskPercent}%</span>
+                            </div>
+                            <div className="w-full h-1.5 rounded-full bg-secondary overflow-hidden">
+                              <div
+                                className="h-full bg-purple-500 transition-all"
+                                style={{ width: `${subtaskPercent}%` }}
+                              />
+                            </div>
                           </div>
                         )}
 
-                        {/* Subtasks and checklist progress */}
-                        <div className="flex items-center justify-between pt-2 border-t text-[11px] text-muted-foreground">
-                          <div className="flex items-center gap-3">
-                            {checklistTotal > 0 && (
-                              <span
-                                className="flex items-center gap-1"
-                                title="Checklist progress"
-                              >
-                                <ListCheck className="h-3 w-3" />
-                                <span>
-                                  {checklistDone}/{checklistTotal}
-                                </span>
-                              </span>
-                            )}
-                            {subtaskCount > 0 && (
-                              <span className="flex items-center gap-1" title="Child tasks">
-                                <Layers className="h-3 w-3" />
-                                <span>{subtaskCount} subtasks</span>
-                              </span>
-                            )}
+                        <div className="flex items-center justify-between pt-1 border-t border-border/40 text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1.5">
+                            <Avatar name={feat.assignee} size="xs" />
+                            <span>{feat.assignee || "Unassigned"}</span>
                           </div>
 
-                          <Avatar name={feat.assignee} size="xs" />
+                          {feat.dueDate && (
+                            <span className="flex items-center gap-1 font-mono text-[10px]">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(feat.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
                       </div>
                     );
@@ -223,19 +277,57 @@ export default function RoadmapPage({
         })}
       </div>
 
-      {/* Propose Feature Modal */}
+      {/* Propose Feature Modal with Stage Selection and File Upload */}
       {isProposeOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
-          <div className="relative w-full max-w-lg rounded-xl border bg-card p-6 shadow-2xl text-card-foreground animate-in fade-in-0 zoom-in-95">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 overflow-y-auto">
+          <div className="relative w-full max-w-lg rounded-xl border bg-card p-6 shadow-2xl text-card-foreground animate-in fade-in-0 zoom-in-95 my-8 max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsProposeOpen(false)}
+              className="absolute right-4 top-4 rounded-md p-1.5 text-muted-foreground hover:bg-muted"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
             <h3 className="text-lg font-bold tracking-tight mb-1 flex items-center gap-2 text-purple-500">
               <Sparkles className="h-5 w-5" />
               <span>Propose Feature ({projectKey})</span>
             </h3>
             <p className="text-xs text-muted-foreground mb-4">
-              Add a new capability to the product backlog.
+              Add a new capability to the product backlog or target workflow stage.
             </p>
 
             <form onSubmit={handleProposeFeature} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                    Workflow Stage *
+                  </label>
+                  <select
+                    value={selectedStageId}
+                    onChange={(e) => setSelectedStageId(e.target.value)}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-primary font-medium"
+                  >
+                    {stages.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                    Requested By
+                  </label>
+                  <Input
+                    placeholder="e.g. Acme Corp / Internal"
+                    value={requestedBy}
+                    onChange={(e) => setRequestedBy(e.target.value)}
+                    className="h-9 text-xs"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                   Feature Name *
@@ -246,6 +338,7 @@ export default function RoadmapPage({
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   className="h-9 text-xs"
+                  autoFocus
                 />
               </div>
 
@@ -262,16 +355,66 @@ export default function RoadmapPage({
                 />
               </div>
 
+              {/* Attachments Section */}
               <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                  Requested By (Client / Stakeholder)
-                </label>
-                <Input
-                  placeholder="e.g. Acme Corp Enterprise / Internal Roadmap"
-                  value={requestedBy}
-                  onChange={(e) => setRequestedBy(e.target.value)}
-                  className="h-8 text-xs"
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Attach Specs or Mockups</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-xs text-primary font-semibold hover:underline cursor-pointer flex items-center gap-1"
+                  >
+                    <Plus className="h-3 w-3" />
+                    <span>Add File</span>
+                  </button>
+                </div>
+
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                  accept="image/*,audio/*,.pdf,.txt,.log,.json,.csv,.zip"
                 />
+
+                {attachedFiles.length === 0 ? (
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-border/80 hover:border-primary/50 hover:bg-muted/30 rounded-lg p-3 text-center cursor-pointer transition-colors"
+                  >
+                    <p className="text-xs text-muted-foreground">
+                      Click to attach specifications, mockups, or requirements
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
+                    {attachedFiles.map((f, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between p-2 rounded-md bg-muted/50 border text-xs"
+                      >
+                        <div className="flex items-center gap-2 truncate">
+                          <FileText className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <span className="truncate font-medium">{f.name}</span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            ({(f.size / 1024).toFixed(1)} KB)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(i)}
+                          className="text-muted-foreground hover:text-destructive p-1 rounded transition-colors"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-end gap-2 pt-3 border-t">
@@ -286,10 +429,10 @@ export default function RoadmapPage({
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={submitting}
-                  className="bg-purple-600 hover:bg-purple-700 text-white"
+                  disabled={submitting || !title.trim()}
+                  className="bg-purple-600 hover:bg-purple-700 text-white font-semibold"
                 >
-                  {submitting ? "Adding..." : "Add to Backlog"}
+                  {submitting ? "Adding..." : "Add Feature"}
                 </Button>
               </div>
             </form>
@@ -309,7 +452,7 @@ export default function RoadmapPage({
             setSelectedItem(updated);
           }}
           onDelete={(id) => {
-            setFeatures((prev) => prev.filter((f) => f.id !== id));
+            setFeatures((prev) => prev.filter((i) => i.id !== id));
             setSelectedItem(null);
           }}
           stages={stages}

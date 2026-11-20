@@ -11,5 +11,7 @@ services:
         value: 3.11.9
       - key: DATABASE_URL
         value: sqlite:///./dev.db
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
     healthCheckPath: /api/health
     autoDeploy: true
