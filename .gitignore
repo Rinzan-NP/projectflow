@@ -31,3 +31,6 @@ dev.db-journal
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
+
+# Legacy Next API Backup
+legacy_next_api/

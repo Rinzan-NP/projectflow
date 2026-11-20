@@ -1,16 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import {
-  Kanban,
-  ListFilter,
-  Bug,
-  Sparkles,
-  Settings,
-  ChevronRight,
-  Plus,
-} from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { ProjectNavTabs } from "@/components/layout/ProjectNavTabs";
 
 export default async function ProjectLayout({
@@ -21,30 +12,35 @@ export default async function ProjectLayout({
   params: Promise<{ key: string }>;
 }) {
   const { key } = await params;
-  const project = await db.project.findFirst({
-    where: { key: key.toUpperCase() },
-    include: {
-      stages: { orderBy: { order: "asc" } },
-      items: {
-        select: {
-          id: true,
-          type: true,
-          stageId: true,
-        },
-      },
-    },
-  });
+  const backendUrl =
+    process.env.BACKEND_URL || "https://projectflow-api-sgm3.onrender.com";
+
+  let project: any = null;
+  try {
+    const res = await fetch(
+      `${backendUrl}/api/projects/${encodeURIComponent(key)}`,
+      { cache: "no-store" }
+    );
+    if (res.ok) {
+      project = await res.json();
+    }
+  } catch (err) {
+    console.error("Failed to fetch project in layout:", err);
+  }
 
   if (!project) {
     notFound();
   }
 
+  const stages = project.stages || [];
   const doneStageIds = new Set(
-    project.stages.filter((s) => s.isDoneStage).map((s) => s.id)
+    stages.filter((s: any) => s.isDoneStage).map((s: any) => s.id)
   );
-  const totalItems = project.items.length;
-  const doneItems = project.items.filter((i) => doneStageIds.has(i.stageId)).length;
-  const progressPercent = totalItems === 0 ? 0 : Math.round((doneItems / totalItems) * 100);
+  const totalItems = project.totalItems ?? 0;
+  const doneItems = project.doneItems ?? 0;
+  const progressPercent =
+    project.progressPercent ??
+    (totalItems === 0 ? 0 : Math.round((doneItems / totalItems) * 100));
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-3.5rem)]">
@@ -55,9 +51,9 @@ export default async function ProjectLayout({
           <div className="flex items-center gap-3">
             <div
               className="h-8 w-8 rounded-lg flex items-center justify-center text-white font-bold text-xs shadow-xs shrink-0"
-              style={{ backgroundColor: project.color }}
+              style={{ backgroundColor: project.color || "#3b82f6" }}
             >
-              {project.key.slice(0, 3)}
+              {project.key?.slice(0, 3)}
             </div>
             <div>
               <div className="flex items-center gap-2">
