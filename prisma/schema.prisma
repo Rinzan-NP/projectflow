@@ -64,6 +64,7 @@ model Project {
   items       Item[]
   labels      Label[]
   milestones  Milestone[]
+  documents   ProjectDocument[]
 
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -219,4 +220,25 @@ model Milestone {
   isCompleted Boolean   @default(false)
   items       Item[]
   createdAt   DateTime  @default(now())
+}
+
+model ProjectDocument {
+  id          String    @id @default(cuid())
+  projectId   String
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  title       String
+  description String?
+  category    String    @default("PRD") // PRD, Knowledge Base, Architecture, Design, Meeting Notes, General
+  fileUrl     String?   // file URL or local path
+  fileName    String?
+  fileSize    Int?      // in bytes
+  mimeType    String?
+  content     String?   // optional text or markdown content
+  
+  author      String    @default("Alex Rivers")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId, category])
 }

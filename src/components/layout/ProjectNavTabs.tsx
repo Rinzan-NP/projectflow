@@ -9,6 +9,7 @@ import {
   Bug,
   Sparkles,
   Settings,
+  FileText,
 } from "lucide-react";
 
 interface ProjectNavTabsProps {
@@ -24,6 +25,7 @@ export function ProjectNavTabs({ projectKey }: ProjectNavTabsProps) {
     { label: "List", path: `${basePath}/list`, icon: ListFilter },
     { label: "Bugs", path: `${basePath}/bugs`, icon: Bug },
     { label: "Roadmap", path: `${basePath}/roadmap`, icon: Sparkles },
+    { label: "Docs & KB", path: `${basePath}/docs`, icon: FileText },
     { label: "Stages & Settings", path: `${basePath}/settings`, icon: Settings },
   ];
 

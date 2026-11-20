@@ -7,6 +7,7 @@ async function clean() {
   
   await prisma.activityLog.deleteMany({});
   await prisma.attachment.deleteMany({});
+  await prisma.projectDocument.deleteMany({});
   await prisma.checklistItem.deleteMany({});
   await prisma.comment.deleteMany({});
   await prisma.itemLabel.deleteMany({});
