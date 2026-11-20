@@ -545,7 +545,10 @@ async def run_bot_polling(token: str):
     offset = 0
     logger.info("Telegram Bot started in polling mode...")
 
-    await bot.init_client()
+    # Long polling timeout configuration
+    timeout_cfg = httpx.Timeout(connect=15.0, read=45.0, write=15.0, pool=15.0)
+    bot.client = httpx.AsyncClient(timeout=timeout_cfg)
+
     # Delete webhook if previously set to ensure polling works
     try:
         await bot.client.post(f"{bot.api_url}/deleteWebhook")
@@ -556,18 +559,23 @@ async def run_bot_polling(token: str):
         try:
             resp = await bot.client.get(
                 f"{bot.api_url}/getUpdates",
-                params={"offset": offset, "timeout": 25},
-                timeout=35.0,
+                params={"offset": offset, "timeout": 20},
             )
             data = resp.json()
             if data.get("ok"):
                 for update in data.get("result", []):
                     offset = max(offset, update["update_id"] + 1)
                     asyncio.create_task(bot.handle_update(update))
+            else:
+                logger.warning(f"Telegram getUpdates response not ok: {data}")
+                await asyncio.sleep(2)
+        except (httpx.TimeoutException, asyncio.TimeoutError):
+            # Normal long-polling cycle completed with no new messages
+            continue
         except asyncio.CancelledError:
             break
         except Exception as e:
-            logger.warning(f"Polling warning: {e}")
+            logger.warning(f"Polling warning: {repr(e)}")
             await asyncio.sleep(3)
 
     await bot.close()

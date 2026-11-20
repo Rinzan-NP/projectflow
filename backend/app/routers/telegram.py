@@ -16,7 +16,8 @@ async def telegram_status():
         }
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
+        timeout = httpx.Timeout(connect=10.0, read=20.0, write=10.0, pool=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.get(f"https://api.telegram.org/bot{token}/getMe")
             data = resp.json()
             if data.get("ok"):
@@ -28,13 +29,14 @@ async def telegram_status():
             return {
                 "configured": True,
                 "connected": False,
-                "error": data.get("description", "Invalid bot token"),
+                "status_code": resp.status_code,
+                "error": data.get("description", "Telegram API returned ok: false"),
             }
     except Exception as e:
         return {
             "configured": True,
             "connected": False,
-            "error": str(e),
+            "error": repr(e),
         }
 
 @router.post("/webhook")
