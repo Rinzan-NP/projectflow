@@ -85,7 +85,11 @@ export async function GET(req: Request) {
   } catch (error: any) {
     console.error("GET /api/projects error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch projects" },
+      {
+        error: "Failed to fetch projects",
+        message: error?.message || String(error),
+        hint: !process.env.TURSO_DATABASE_URL ? "TURSO_DATABASE_URL is missing in environment variables" : undefined,
+      },
       { status: 500 }
     );
   }
