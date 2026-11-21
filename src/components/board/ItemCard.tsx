@@ -61,14 +61,48 @@ export function ItemCard({ item, onClick, isOverlay = false }: ItemCardProps) {
     >
       {/* Top: Human ID & Type & Priority */}
       <div className="flex items-center justify-between gap-2 mb-1.5">
-        <div className="flex items-center gap-1.5">
-          <ItemTypeIcon type={item.type} className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1.5 min-w-0">
+          <ItemTypeIcon type={item.type} className="h-3.5 w-3.5 shrink-0" />
           <span className="font-mono text-[11px] font-semibold text-muted-foreground group-hover:text-primary transition-colors">
             {item.humanId}
           </span>
+          {item.project && (
+            <span
+              className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono shrink-0 border uppercase tracking-wider"
+              style={{
+                backgroundColor: `${item.project.color}15`,
+                color: item.project.color,
+                borderColor: `${item.project.color}35`,
+              }}
+              title={item.project.name}
+            >
+              {item.project.key}
+            </span>
+          )}
         </div>
 
-        <PriorityIcon priority={item.priority} className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-1 shrink-0" title={`Priority: ${item.priority}`}>
+          <PriorityIcon priority={item.priority} className="h-3 w-3" />
+          <span
+            className={`text-[9px] font-semibold px-1 py-0.2 rounded border ${
+              item.priority === "CRITICAL"
+                ? "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20"
+                : item.priority === "HIGH"
+                ? "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20"
+                : item.priority === "LOW"
+                ? "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                : "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20"
+            }`}
+          >
+            {item.priority === "CRITICAL"
+              ? "Critical"
+              : item.priority === "HIGH"
+              ? "High"
+              : item.priority === "LOW"
+              ? "Low"
+              : "Med"}
+          </span>
+        </div>
       </div>
 
       {/* Title */}

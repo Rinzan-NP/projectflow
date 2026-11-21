@@ -15,7 +15,7 @@ interface KanbanColumnProps {
   stage: Stage;
   items: ItemWithRelations[];
   onItemClick: (item: ItemWithRelations) => void;
-  onQuickAdd: (stageId: string, title: string, type: ItemType) => Promise<void>;
+  onQuickAdd: (stageId: string, title: string, type: ItemType, priority?: string) => Promise<void>;
 }
 
 export function KanbanColumn({
@@ -95,7 +95,7 @@ export function KanbanColumn({
       <div className="p-2 pt-1 border-t border-border/40">
         <QuickAddCard
           stageId={stage.id}
-          onAdd={(title, type) => onQuickAdd(stage.id, title, type)}
+          onAdd={(title, type, priority) => onQuickAdd(stage.id, title, type, priority)}
         />
       </div>
     </div>

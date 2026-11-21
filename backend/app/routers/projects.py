@@ -76,6 +76,7 @@ def get_projects(
             "color": p.color,
             "icon": p.icon,
             "status": p.status,
+            "priority": getattr(p, "priority", "MEDIUM") or "MEDIUM",
             "startDate": p.startDate,
             "targetDate": p.targetDate,
             "owner": p.owner,
@@ -113,6 +114,7 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         color=data.color or "#3b82f6",
         icon=data.icon or "FolderKanban",
         status=data.status or "ACTIVE",
+        priority=(data.priority or "MEDIUM").upper(),
         startDate=data.startDate,
         targetDate=data.targetDate,
         owner=data.owner or "Alex Rivers",
@@ -162,6 +164,7 @@ def get_project(id: str, db: Session = Depends(get_db)):
         "color": project.color,
         "icon": project.icon,
         "status": project.status,
+        "priority": getattr(project, "priority", "MEDIUM") or "MEDIUM",
         "startDate": project.startDate,
         "targetDate": project.targetDate,
         "owner": project.owner,
@@ -186,6 +189,8 @@ def update_project(id: str, data: ProjectUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Project not found")
 
     update_dict = data.dict(exclude_unset=True)
+    if "priority" in update_dict and update_dict["priority"]:
+        update_dict["priority"] = update_dict["priority"].upper()
     for field, val in update_dict.items():
         setattr(project, field, val)
 

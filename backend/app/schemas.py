@@ -34,6 +34,7 @@ class ProjectBase(BaseModel):
     color: Optional[str] = "#3b82f6"
     icon: Optional[str] = "FolderKanban"
     status: Optional[str] = "ACTIVE"
+    priority: Optional[str] = "MEDIUM"
     startDate: Optional[datetime] = None
     targetDate: Optional[datetime] = None
     owner: Optional[str] = "Alex Rivers"
@@ -49,6 +50,7 @@ class ProjectUpdate(BaseModel):
     color: Optional[str] = None
     icon: Optional[str] = None
     status: Optional[str] = None
+    priority: Optional[str] = None
     startDate: Optional[datetime] = None
     targetDate: Optional[datetime] = None
     owner: Optional[str] = None
@@ -111,9 +113,10 @@ class ItemUpdate(BaseModel):
     labels: Optional[List[str]] = None
 
 class ItemReorder(BaseModel):
-    itemId: str
-    targetStageId: str
-    newOrder: float
+    itemId: Optional[str] = None
+    targetStageId: Optional[str] = None
+    newOrder: Optional[float] = None
+    items: Optional[List[dict]] = None
 
 class BulkAction(BaseModel):
     itemIds: List[str]

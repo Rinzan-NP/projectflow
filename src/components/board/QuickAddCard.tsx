@@ -7,13 +7,14 @@ import { ItemTypeIcon } from "@/components/shared/ItemTypeIcon";
 
 interface QuickAddCardProps {
   stageId: string;
-  onAdd: (title: string, type: ItemType) => Promise<void>;
+  onAdd: (title: string, type: ItemType, priority?: string) => Promise<void>;
 }
 
 export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<ItemType>("TASK");
+  const [priority, setPriority] = useState<string>("MEDIUM");
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -22,7 +23,7 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
 
     setLoading(true);
     try {
-      await onAdd(title.trim(), type);
+      await onAdd(title.trim(), type, priority);
       setTitle("");
       // Keep input focused for rapid multi-item entry
     } catch (err) {
@@ -57,17 +58,31 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
   return (
     <div className="rounded-lg border bg-card p-2.5 shadow-sm space-y-2 animate-in fade-in-0 duration-150">
       <div className="flex items-center justify-between gap-1">
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as ItemType)}
-          className="text-[11px] font-semibold bg-muted/60 border rounded px-1.5 py-0.5 cursor-pointer text-foreground focus:outline-none"
-        >
-          <option value="TASK">Task</option>
-          <option value="BUG">Bug</option>
-          <option value="FEATURE">Feature</option>
-          <option value="IMPROVEMENT">Improvement</option>
-          <option value="CHORE">Chore</option>
-        </select>
+        <div className="flex items-center gap-1.5">
+          <select
+            value={type}
+            onChange={(e) => setType(e.target.value as ItemType)}
+            className="text-[11px] font-semibold bg-muted/60 border rounded px-1.5 py-0.5 cursor-pointer text-foreground focus:outline-none"
+          >
+            <option value="TASK">Task</option>
+            <option value="BUG">Bug</option>
+            <option value="FEATURE">Feature</option>
+            <option value="IMPROVEMENT">Improvement</option>
+            <option value="CHORE">Chore</option>
+          </select>
+
+          <select
+            value={priority}
+            onChange={(e) => setPriority(e.target.value)}
+            className="text-[11px] font-semibold bg-muted/60 border rounded px-1.5 py-0.5 cursor-pointer text-foreground focus:outline-none"
+            title="Task Priority"
+          >
+            <option value="CRITICAL">🔴 Critical</option>
+            <option value="HIGH">🟠 High</option>
+            <option value="MEDIUM">🟡 Med</option>
+            <option value="LOW">🔵 Low</option>
+          </select>
+        </div>
 
         <button
           onClick={() => setIsOpen(false)}

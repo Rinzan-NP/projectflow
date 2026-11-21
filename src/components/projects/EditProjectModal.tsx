@@ -36,6 +36,7 @@ export function EditProjectModal({
   const [company, setCompany] = useState(project.company || "Company 1");
   const [description, setDescription] = useState(project.description || "");
   const [status, setStatus] = useState(project.status || "ACTIVE");
+  const [priority, setPriority] = useState(project.priority || "MEDIUM");
   const [color, setColor] = useState(project.color || PRESET_COLORS[0]);
   const [owner, setOwner] = useState(project.owner || "");
   const [members, setMembers] = useState(project.members || "");
@@ -59,6 +60,7 @@ export function EditProjectModal({
           company: company.trim(),
           description: description.trim() || null,
           status,
+          priority,
           color,
           owner: owner.trim(),
           members: members.trim(),
@@ -158,6 +160,24 @@ export function EditProjectModal({
               </select>
             </div>
 
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+                Project Priority
+              </label>
+              <select
+                value={priority}
+                onChange={(e) => setPriority(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="CRITICAL">🔴 Critical / Urgent</option>
+                <option value="HIGH">🟠 High Priority</option>
+                <option value="MEDIUM">🟡 Medium Priority</option>
+                <option value="LOW">🔵 Low Priority</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3">
             <div>
               <label className="text-xs font-semibold text-muted-foreground mb-1 block">
                 Owner

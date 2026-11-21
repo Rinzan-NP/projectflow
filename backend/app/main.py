@@ -13,8 +13,18 @@ from .telegram_bot import run_bot_polling
 
 logger = logging.getLogger("projectflow")
 
+from sqlalchemy import text
+
 # Create tables if not exist
 Base.metadata.create_all(bind=engine)
+
+# Safe SQLite column migration for Project priority
+try:
+    with engine.connect() as conn:
+        conn.execute(text("ALTER TABLE Project ADD COLUMN priority VARCHAR DEFAULT 'MEDIUM'"))
+        conn.commit()
+except Exception:
+    pass
 
 def auto_seed_if_empty():
     db = SessionLocal()

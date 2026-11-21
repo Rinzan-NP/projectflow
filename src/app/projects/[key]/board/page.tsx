@@ -13,13 +13,17 @@ export default async function BoardPage({
 
   let project: any = null;
   let items: any[] = [];
+  let allProjects: any[] = [];
 
   try {
-    const [projectRes, itemsRes] = await Promise.all([
+    const [projectRes, itemsRes, allProjectsRes] = await Promise.all([
       fetch(`${backendUrl}/api/projects/${encodeURIComponent(key)}`, {
         cache: "no-store",
       }),
       fetch(`${backendUrl}/api/projects/${encodeURIComponent(key)}/items`, {
+        cache: "no-store",
+      }),
+      fetch(`${backendUrl}/api/projects`, {
         cache: "no-store",
       }),
     ]);
@@ -29,6 +33,9 @@ export default async function BoardPage({
     }
     if (itemsRes.ok) {
       items = await itemsRes.json();
+    }
+    if (allProjectsRes.ok) {
+      allProjects = await allProjectsRes.json();
     }
   } catch (err) {
     console.error("Failed to load board data:", err);
@@ -42,6 +49,7 @@ export default async function BoardPage({
         projectKey={project.key}
         initialStages={project.stages || []}
         initialItems={items || []}
+        allProjects={allProjects}
       />
     </div>
   );

@@ -198,6 +198,19 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
           </Link>
 
           <Link
+            href="/board"
+            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+              pathname === "/board"
+                ? "bg-accent text-accent-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+            title="All Projects Kanban Board"
+          >
+            <Kanban className="h-4 w-4 shrink-0 text-amber-500" />
+            {!collapsed && <span>Board</span>}
+          </Link>
+
+          <Link
             href="/my-work"
             className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
               pathname === "/my-work"

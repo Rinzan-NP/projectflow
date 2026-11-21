@@ -31,6 +31,25 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
     ARCHIVED: "bg-slate-500/10 text-slate-500 border-slate-500/20",
   };
 
+  const priorityColors: Record<string, { label: string; badgeClass: string }> = {
+    CRITICAL: {
+      label: "Critical",
+      badgeClass: "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/20",
+    },
+    HIGH: {
+      label: "High",
+      badgeClass: "bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20",
+    },
+    MEDIUM: {
+      label: "Medium",
+      badgeClass: "bg-yellow-500/10 text-yellow-600 dark:text-yellow-400 border-yellow-500/20",
+    },
+    LOW: {
+      label: "Low",
+      badgeClass: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
+    },
+  };
+
   return (
     <div className="group relative flex flex-col justify-between rounded-xl border bg-card p-5 shadow-xs hover:shadow-md hover:border-primary/40 transition-all">
       {/* Top Header */}
@@ -65,6 +84,16 @@ export function ProjectCard({ project, onEdit }: ProjectCardProps) {
                   }`}
                 >
                   {project.status.replace("_", " ")}
+                </span>
+                <span className="text-muted-foreground text-xs">•</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-sm border font-medium ${
+                    priorityColors[project.priority || "MEDIUM"]?.badgeClass ||
+                    priorityColors.MEDIUM.badgeClass
+                  }`}
+                  title={`Priority: ${project.priority || "Medium"}`}
+                >
+                  {priorityColors[project.priority || "MEDIUM"]?.label || "Medium"}
                 </span>
               </div>
             </div>

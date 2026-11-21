@@ -36,6 +36,12 @@ export type {
 
 export type ItemWithRelations = Item & {
   stage?: Stage;
+  project?: {
+    id: string;
+    key: string;
+    name: string;
+    color: string;
+  };
   labels?: (ItemLabel & { label: Label })[];
   checklists?: ChecklistItem[];
   comments?: Comment[];

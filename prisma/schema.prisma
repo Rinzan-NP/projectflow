@@ -51,6 +51,7 @@ model Project {
   color       String        @default("#3b82f6") // hex color code
   icon        String        @default("FolderKanban")
   status      ProjectStatus @default(ACTIVE)
+  priority    Priority      @default(MEDIUM)
 
   startDate   DateTime?
   targetDate  DateTime?

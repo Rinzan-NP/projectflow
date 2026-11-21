@@ -33,6 +33,7 @@ export function CreateProjectModal({
   const [company, setCompany] = useState("Company 1");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState(PRESET_COLORS[0]);
+  const [priority, setPriority] = useState<string>("MEDIUM");
   const [owner, setOwner] = useState("Alex Rivers");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +70,7 @@ export function CreateProjectModal({
           company: company.trim() || "Company 1",
           description: description.trim() || null,
           color,
+          priority,
           owner: owner.trim(),
         }),
       });
@@ -174,6 +176,22 @@ export function CreateProjectModal({
                 className="h-9"
               />
             </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1 block">
+              Project Priority
+            </label>
+            <select
+              value={priority}
+              onChange={(e) => setPriority(e.target.value)}
+              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-primary"
+            >
+              <option value="CRITICAL">🔴 Critical / Urgent</option>
+              <option value="HIGH">🟠 High Priority</option>
+              <option value="MEDIUM">🟡 Medium Priority</option>
+              <option value="LOW">🔵 Low Priority</option>
+            </select>
           </div>
 
           <div>

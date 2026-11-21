@@ -28,6 +28,7 @@ class Project(Base):
     color = Column(String, default="#3b82f6", nullable=False)
     icon = Column(String, default="FolderKanban", nullable=False)
     status = Column(String, default="ACTIVE", nullable=False)
+    priority = Column(String, default="MEDIUM", nullable=False)
 
     startDate = Column(DateTime, nullable=True)
     targetDate = Column(DateTime, nullable=True)

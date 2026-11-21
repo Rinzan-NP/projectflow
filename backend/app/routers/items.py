@@ -14,6 +14,13 @@ def serialize_item(item: Item):
         "humanId": item.humanId,
         "itemNumber": item.itemNumber,
         "projectId": item.projectId,
+        "project": {
+            "id": item.project.id,
+            "key": item.project.key,
+            "name": item.project.name,
+            "color": item.project.color,
+            "priority": getattr(item.project, "priority", "MEDIUM") or "MEDIUM",
+        } if item.project else None,
         "stageId": item.stageId,
         "stage": {
             "id": item.stage.id,
@@ -74,6 +81,43 @@ def serialize_item(item: Item):
             for s in item.subtasks
         ],
     }
+
+@router.get("/api/items")
+def get_all_items(
+    projectId: Optional[str] = None,
+    projectKey: Optional[str] = None,
+    type: Optional[str] = None,
+    priority: Optional[str] = None,
+    assignee: Optional[str] = None,
+    label: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db),
+):
+    query = db.query(Item).join(Project, Item.projectId == Project.id)
+
+    if projectId and projectId != "ALL":
+        query = query.filter((Item.projectId == projectId) | (Project.key == projectId.upper()))
+    if projectKey and projectKey != "ALL":
+        query = query.filter(Project.key == projectKey.upper())
+    if type and type != "ALL":
+        query = query.filter(Item.type == type)
+    if priority and priority != "ALL":
+        query = query.filter(Item.priority == priority)
+    if assignee and assignee != "ALL":
+        if assignee == "UNASSIGNED":
+            query = query.filter(Item.assignee == None)
+        else:
+            query = query.filter(Item.assignee == assignee)
+    if label and label != "ALL":
+        query = query.join(Item.labels).filter(Label.name == label)
+    if search and search.strip():
+        term = f"%{search.strip()}%"
+        query = query.filter(
+            (Item.title.ilike(term)) | (Item.humanId.ilike(term)) | (Item.description.ilike(term))
+        )
+
+    items = query.order_by(Item.order.asc(), Item.createdAt.asc()).all()
+    return [serialize_item(i) for i in items]
 
 @router.get("/api/projects/{id}/items")
 def get_project_items(
@@ -249,7 +293,22 @@ def delete_item(id: str, db: Session = Depends(get_db)):
     return {"message": "Item deleted"}
 
 @router.post("/api/items/reorder")
+@router.put("/api/items/reorder")
 def reorder_item(payload: ItemReorder, db: Session = Depends(get_db)):
+    if payload.items:
+        for entry in payload.items:
+            it = db.query(Item).filter(Item.id == (entry.get("id") or entry.get("itemId"))).first()
+            if it:
+                if "stageId" in entry and entry["stageId"]:
+                    it.stageId = entry["stageId"]
+                if "order" in entry and entry["order"] is not None:
+                    it.order = float(entry["order"])
+        db.commit()
+        return {"message": "Items reordered successfully"}
+
+    if not payload.itemId or not payload.targetStageId:
+        return {"message": "No item to reorder"}
+
     item = db.query(Item).filter(Item.id == payload.itemId).first()
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
@@ -258,7 +317,7 @@ def reorder_item(payload: ItemReorder, db: Session = Depends(get_db)):
     old_stage_name = item.stage.name if item.stage else ""
 
     item.stageId = payload.targetStageId
-    item.order = payload.newOrder
+    item.order = payload.newOrder if payload.newOrder is not None else item.order
 
     target_stage = db.query(Stage).filter(Stage.id == payload.targetStageId).first()
     if target_stage:
