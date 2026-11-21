@@ -2,8 +2,8 @@ name: Keep Render Backend Alive
 
 on:
   schedule:
-    # Run every 14 minutes to prevent Render free tier from going to sleep (spins down after 15m)
-    - cron: "*/14 * * * *"
+    # Run every 10 minutes to prevent Render free tier from going to sleep (spins down after 15m)
+    - cron: "*/10 * * * *"
   workflow_dispatch: # Allows manual trigger from GitHub UI
 
 jobs:
@@ -12,12 +12,12 @@ jobs:
     steps:
       - name: Ping Backend Health Endpoint
         run: |
-          URL="https://projectflow-api-sgm3.onrender.com/api/health"
-          echo "Pinging $URL to keep Render backend awake..."
-          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
-          echo "HTTP Status Code: $RESPONSE"
-          if [ "$RESPONSE" -ge 200 ] && [ "$RESPONSE" -lt 400 ]; then
-            echo "Render backend is awake and healthy!"
-          else
-            echo "Ping sent (Status: $RESPONSE)"
-          fi
+          URLS=(
+            "https://projectflow-api-sgm3.onrender.com/api/health"
+            "https://projectflow-api-sgm3.onrender.com/api/telegram/status"
+          )
+          for URL in "${URLS[@]}"; do
+            echo "Pinging $URL..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL")
+            echo "$URL -> HTTP $STATUS"
+          done
