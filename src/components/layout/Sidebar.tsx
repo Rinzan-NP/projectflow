@@ -6,7 +6,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutGrid,
   CheckCircle2,
-  Terminal,
   Search,
   Plus,
   ChevronDown,
@@ -221,19 +220,6 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
             {!collapsed && <span>My Work</span>}
-          </Link>
-
-          <Link
-            href="/dev-kit"
-            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
-              pathname === "/dev-kit"
-                ? "bg-accent text-accent-foreground font-semibold"
-                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
-            }`}
-            title="Developer Toolkit"
-          >
-            <Terminal className="h-4 w-4 shrink-0 text-purple-500" />
-            {!collapsed && <span>Dev Kit</span>}
           </Link>
         </div>
 

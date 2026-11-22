@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search,
   FolderKanban,
+  Kanban,
   CheckSquare,
   Bug,
   Sparkles,
@@ -121,6 +122,19 @@ export function CommandPalette({
                 <div className="flex items-center gap-2">
                   <FolderKanban className="h-4 w-4 text-primary" />
                   <span>Go to Projects Dashboard</span>
+                </div>
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              </div>
+              <div
+                onClick={() => {
+                  router.push("/board");
+                  onClose();
+                }}
+                className="flex items-center justify-between p-2 rounded-lg hover:bg-muted cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Kanban className="h-4 w-4 text-amber-500" />
+                  <span>Go to Board</span>
                 </div>
                 <ArrowRight className="h-3 w-3 text-muted-foreground" />
               </div>
