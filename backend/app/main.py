@@ -21,7 +21,7 @@ Base.metadata.create_all(bind=engine)
 # Safe SQLite column migration for Project priority
 try:
     with engine.connect() as conn:
-        conn.execute(text("ALTER TABLE Project ADD COLUMN priority VARCHAR DEFAULT 'MEDIUM'"))
+        conn.execute(text('ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS priority VARCHAR DEFAULT \'MEDIUM\''))
         conn.commit()
 except Exception:
     pass
