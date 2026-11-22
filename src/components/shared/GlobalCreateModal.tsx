@@ -69,7 +69,7 @@ export function GlobalCreateModal({
         .then((r) => r.json())
         .then((data) => {
           const allowed =
-            user.company !== "ALL"
+            user?.company && user.company !== "ALL"
               ? data.filter((p: any) => p.company === user.company)
               : data;
           setProjects(allowed);
@@ -84,7 +84,7 @@ export function GlobalCreateModal({
         })
         .catch((err) => console.error("Failed to load projects:", err));
     }
-  }, [isOpen, defaultProjectKey, defaultType, user.company]);
+  }, [isOpen, defaultProjectKey, defaultType, user?.company]);
 
   const fetchStages = async (key: string) => {
     try {
@@ -138,7 +138,7 @@ export function GlobalCreateModal({
           priority,
           stageId: selectedStageId,
           assignee: assignee || null,
-          reporter: user.username,
+          reporter: user?.username || undefined,
           severity: type === "BUG" ? severity : null,
           environment: type === "BUG" && environment.trim() ? environment.trim() : null,
           stepsToReproduce:

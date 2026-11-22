@@ -1,24 +1,37 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { GlobalCreateModal } from "@/components/shared/GlobalCreateModal";
-import { AuthProvider } from "@/lib/auth";
-import { LoginModal } from "@/components/auth/LoginModal";
+import { AuthProvider, useAuth } from "@/lib/auth";
+import { Loader2 } from "lucide-react";
 
 function AppShellContent({ children }: { children: React.ReactNode }) {
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const pathname = usePathname();
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
+
+  const isLoginPage = pathname === "/login";
 
   // If inside a project page (e.g. /projects/PP/board), extract the project key
   const projectMatch = pathname ? pathname.match(/^\/projects\/([^/]+)/) : null;
   const currentProjectKey = projectMatch ? decodeURIComponent(projectMatch[1]).toUpperCase() : undefined;
 
+  // Protect all non-login pages: redirect unauthenticated users to /login
+  useEffect(() => {
+    if (!isLoading && !user && !isLoginPage) {
+      router.replace("/login");
+    }
+  }, [user, isLoading, isLoginPage, router]);
+
   // Global keyboard shortcuts: Cmd+K / Ctrl+K, 'c' to create, '/' to search
   useEffect(() => {
+    if (isLoginPage) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       const isInput =
@@ -47,7 +60,21 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  }, [isLoginPage]);
+
+  // For /login route: render login page standalone (without app chrome)
+  if (isLoginPage) {
+    return <main className="min-h-screen w-screen bg-background">{children}</main>;
+  }
+
+  // Loading state or redirecting unauthenticated users
+  if (isLoading || !user) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background">
@@ -78,8 +105,6 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         defaultProjectKey={currentProjectKey}
         hideProjectSelect={!!currentProjectKey}
       />
-
-      <LoginModal />
     </div>
   );
 }

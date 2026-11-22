@@ -1,6 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 export type KnownUsername = "nprinzan" | "solinify_1" | "gingr_h";
 
@@ -41,28 +42,31 @@ export const KNOWN_ACCOUNTS: Record<string, AuthUser> = {
 };
 
 interface AuthContextType {
-  user: AuthUser;
+  user: AuthUser | null;
+  isLoading: boolean;
   login: (username: string) => boolean;
   logout: () => void;
-  openLoginModal: () => void;
-  isLoginModalOpen: boolean;
-  closeLoginModal: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser>(KNOWN_ACCOUNTS["nprinzan"]);
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
-    // Check saved session in localStorage
+    // Check saved session in localStorage / cookies
     const saved = localStorage.getItem("projectflow_username");
     if (saved && KNOWN_ACCOUNTS[saved.toLowerCase()]) {
       const u = KNOWN_ACCOUNTS[saved.toLowerCase()];
       setUser(u);
-      document.cookie = `projectflow_username=${u.username}; path=/; max-age=31536000`;
+      document.cookie = `projectflow_username=${u.username}; path=/; max-age=31536000; SameSite=Lax`;
+    } else {
+      setUser(null);
     }
+    setIsLoading(false);
   }, []);
 
   const login = (usernameInput: string): boolean => {
@@ -71,28 +75,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (found) {
       setUser(found);
       localStorage.setItem("projectflow_username", found.username);
-      document.cookie = `projectflow_username=${found.username}; path=/; max-age=31536000`;
-      setIsLoginModalOpen(false);
+      document.cookie = `projectflow_username=${found.username}; path=/; max-age=31536000; SameSite=Lax`;
+      router.push("/projects");
       return true;
     }
     return false;
   };
 
   const logout = () => {
+    setUser(null);
     localStorage.removeItem("projectflow_username");
-    document.cookie = "projectflow_username=; path=/; max-age=0";
-    setIsLoginModalOpen(true);
+    document.cookie = "projectflow_username=; path=/; max-age=0; SameSite=Lax";
+    router.push("/login");
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
+        isLoading,
         login,
         logout,
-        openLoginModal: () => setIsLoginModalOpen(true),
-        isLoginModalOpen,
-        closeLoginModal: () => setIsLoginModalOpen(false),
       }}
     >
       {children}

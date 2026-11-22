@@ -24,14 +24,16 @@ export default function MyWorkPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
-  const currentUser = user.name;
+  const currentUser = user?.name || "Rinzan";
+  const userCompany = user?.company;
+  const username = user?.username;
 
   const fetchMyWork = async () => {
     try {
       // Fetch projects to get all user's items
       const projectsRes = await fetch("/api/projects").then((r) => r.json());
-      const allowedProjects = user.company !== "ALL"
-        ? projectsRes.filter((p: any) => p.company === user.company)
+      const allowedProjects = userCompany && userCompany !== "ALL"
+        ? projectsRes.filter((p: any) => p.company === userCompany)
         : projectsRes;
 
       const allItems: any[] = [];
@@ -41,8 +43,8 @@ export default function MyWorkPage() {
         pItems.forEach((i: any) => {
           if (
             i.assignee === currentUser ||
-            i.reporter === user.username ||
-            user.company !== "ALL"
+            (username && i.reporter === username) ||
+            (userCompany && userCompany !== "ALL")
           ) {
             allItems.push({ ...i, project: p });
           }
@@ -58,7 +60,7 @@ export default function MyWorkPage() {
 
   useEffect(() => {
     fetchMyWork();
-  }, [user.company, user.username]);
+  }, [userCompany, username]);
 
   // Group items by due date buckets
   const grouped = useMemo(() => {

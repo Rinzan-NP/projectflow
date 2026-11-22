@@ -166,13 +166,13 @@ export function KanbanBoard({
   const [assigneeFilter, setAssigneeFilter] = useState("ALL");
   const [quickToggle, setQuickToggle] = useState<"ALL" | "BUGS" | "FEATURES" | "MY">("ALL");
 
-  const currentUser = user.name;
+  const currentUser = user?.name || "Rinzan";
 
   // Filter available projects for user's company
   const visibleProjects = useMemo(() => {
-    if (user.company === "ALL") return allProjects;
+    if (!user || user.company === "ALL") return allProjects;
     return allProjects.filter((p) => p.company === user.company);
-  }, [allProjects, user.company]);
+  }, [allProjects, user?.company]);
 
   // Fetch projects list if not supplied
   useEffect(() => {
@@ -188,7 +188,7 @@ export function KanbanBoard({
   useEffect(() => {
     if (selectedProject === "ALL") {
       const url =
-        user.company !== "ALL"
+        user?.company && user.company !== "ALL"
           ? `/api/items?company=${encodeURIComponent(user.company)}`
           : "/api/items";
       fetch(url)
@@ -196,7 +196,7 @@ export function KanbanBoard({
         .then((data) => setItems(data))
         .catch(console.error);
     }
-  }, [selectedProject, user.company]);
+  }, [selectedProject, user?.company]);
 
   // Determine active stages
   const activeStages = useMemo(() => {
@@ -216,7 +216,7 @@ export function KanbanBoard({
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       // Company isolation for client logins
-      if (user.company !== "ALL") {
+      if (user?.company && user.company !== "ALL") {
         const itemProjKey = (item.project?.key || item.humanId.split("-")[0] || "").toUpperCase();
         const belongsToUserCompany =
           item.project?.company === user.company ||
@@ -257,7 +257,7 @@ export function KanbanBoard({
 
       return true;
     });
-  }, [items, selectedProject, search, typeFilter, priorityFilter, assigneeFilter, quickToggle, user.company, visibleProjects, currentUser]);
+  }, [items, selectedProject, search, typeFilter, priorityFilter, assigneeFilter, quickToggle, user?.company, visibleProjects, currentUser]);
 
   // Group items by stage
   const itemsByStage = useMemo(() => {
@@ -500,7 +500,7 @@ export function KanbanBoard({
           type,
           stageId: actualStageId,
           priority: priority || "MEDIUM",
-          reporter: user.username,
+          reporter: user?.username || undefined,
         }),
       });
 
@@ -552,7 +552,7 @@ export function KanbanBoard({
               title="Filter by Project"
             >
               <option value="ALL">
-                {user.company !== "ALL"
+                {user?.company && user.company !== "ALL"
                   ? `All ${user.company} Projects (${visibleProjects.length})`
                   : `All Projects (${visibleProjects.length})`}
               </option>
@@ -746,7 +746,7 @@ export function KanbanBoard({
             setIsCreateModalOpen(false);
             const url =
               projectKey === "ALL"
-                ? (user.company !== "ALL" ? `/api/items?company=${encodeURIComponent(user.company)}` : "/api/items")
+                ? (user?.company && user.company !== "ALL" ? `/api/items?company=${encodeURIComponent(user.company)}` : "/api/items")
                 : `/api/projects/${projectKey}/items`;
             fetch(url)
               .then((r) => (r.ok ? r.json() : []))

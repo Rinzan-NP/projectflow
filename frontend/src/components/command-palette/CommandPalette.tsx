@@ -45,7 +45,7 @@ export function CommandPalette({
     setLoading(true);
     try {
       const pRes = await fetch("/api/projects").then((r) => r.json());
-      const allowedProjects = user.company !== "ALL"
+      const allowedProjects = user?.company && user.company !== "ALL"
         ? pRes.filter((p: any) => p.company === user.company)
         : pRes;
       setProjects(allowedProjects);

@@ -20,7 +20,7 @@ export default function ProjectsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any | null>(null);
 
-  const effectiveCompany = user.company !== "ALL" ? user.company : companyFilter;
+  const effectiveCompany = user?.company && user.company !== "ALL" ? user.company : companyFilter;
 
   const fetchProjects = async () => {
     setLoading(true);
@@ -49,7 +49,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects();
-  }, [statusFilter, companyFilter, user.company]);
+  }, [statusFilter, companyFilter, user?.company]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -62,16 +62,16 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            {user.company !== "ALL" ? `${user.company} Projects` : "Projects Dashboard"}
+            {user?.company && user.company !== "ALL" ? `${user.company} Projects` : "Projects Dashboard"}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            {user.company !== "ALL"
+            {user?.company && user.company !== "ALL"
               ? `Manage ${user.company} projects, monitor completion progress, and track open issues.`
               : "Manage projects, monitor completion progress, and track open issues."}
           </p>
         </div>
 
-        {user.company === "ALL" && (
+        {(!user || user.company === "ALL") && (
           <Button
             onClick={() => setIsCreateOpen(true)}
             className="gap-2 shadow-sm font-semibold"
@@ -96,7 +96,7 @@ export default function ProjectsPage() {
 
         <div className="flex items-center gap-2 flex-wrap">
           {/* Company Filter (only visible for Admin, badge shown for clients) */}
-          {user.company !== "ALL" ? (
+          {user?.company && user.company !== "ALL" ? (
             <div className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-md px-2.5 py-1.5 font-semibold">
               {user.company} Workspace
             </div>

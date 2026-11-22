@@ -18,8 +18,7 @@ import {
   Settings,
   PanelLeftClose,
   PanelLeft,
-  Sun,
-  Moon,
+  LogOut,
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "@/components/shared/Avatar";
@@ -34,7 +33,7 @@ interface SidebarProps {
 export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, openLoginModal } = useAuth();
+  const { user, logout } = useAuth();
 
   const [projects, setProjects] = useState<any[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
@@ -73,7 +72,7 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
   }, [pathname]);
 
   // Effective company filter: locked to user.company for clients, or selectedCompany for admin
-  const effectiveCompany = user.company !== "ALL" ? user.company : selectedCompany;
+  const effectiveCompany = user?.company !== "ALL" ? (user?.company || "ALL") : selectedCompany;
 
   // Filter projects by selected company
   const filteredProjects = projects.filter((p) => {
@@ -124,11 +123,11 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
         {/* Company Switcher */}
         {!collapsed && (
           <div className="relative mt-1">
-            {user.company !== "ALL" ? (
+            {user?.company !== "ALL" ? (
               <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs shadow-2xs">
                 <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
                 <span className="font-semibold text-primary truncate">
-                  {user.company} Workspace
+                  {user?.company} Workspace
                 </span>
               </div>
             ) : (
@@ -352,37 +351,37 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
         )}
       </div>
 
-      {/* Bottom User Bar & Minimal Theme Switcher */}
+      {/* Bottom User Bar with Profile & Logout */}
       <div className="p-3 border-t flex items-center justify-between gap-2 bg-card">
-        <button
-          onClick={openLoginModal}
-          className="flex items-center gap-2.5 overflow-hidden text-left hover:opacity-85 transition-opacity cursor-pointer group flex-1 min-w-0"
-          title="Switch Account / Sign In"
-        >
+        <div className="flex items-center gap-2.5 overflow-hidden flex-1 min-w-0">
           <div
             className="h-8 w-8 rounded-lg text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs"
-            style={{ backgroundColor: user.avatarBg }}
+            style={{ backgroundColor: user?.avatarBg || "#2563eb" }}
           >
-            {user.avatarText}
+            {user?.avatarText || "U"}
           </div>
           {!collapsed && (
-            <div className="flex flex-col min-w-0">
+            <div className="flex flex-col min-w-0 flex-1">
               <span className="text-xs font-semibold text-foreground truncate">
-                {user.name}
+                {user?.name || "User"}
               </span>
-              <div className="flex items-center gap-1">
-                <span className="text-[10px] text-muted-foreground truncate">
-                  @{user.username}
-                </span>
-                <span className="text-[10px] text-primary font-medium underline underline-offset-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  Switch
-                </span>
-              </div>
+              <span className="text-[10px] text-muted-foreground truncate">
+                {user?.company === "ALL" ? "All Companies" : `${user?.company} Company`}
+              </span>
             </div>
           )}
-        </button>
+        </div>
 
-        {!collapsed && <ThemeToggle />}
+        <div className="flex items-center gap-1 shrink-0">
+          {!collapsed && <ThemeToggle />}
+          <button
+            onClick={logout}
+            className="p-1.5 rounded-md text-muted-foreground hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
+            title="Log Out"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );

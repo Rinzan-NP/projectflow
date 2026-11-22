@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth";
-import { ShieldAlert, ArrowLeft, Building2 } from "lucide-react";
+import { ShieldAlert, ArrowLeft, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ProjectAccessGuardProps {
@@ -17,7 +17,9 @@ export function ProjectAccessGuard({
   projectName,
   children,
 }: ProjectAccessGuardProps) {
-  const { user, openLoginModal } = useAuth();
+  const { user, logout } = useAuth();
+
+  if (!user) return null;
 
   // If superadmin (user.company === "ALL"), full access granted
   if (user.company === "ALL") {
@@ -53,9 +55,9 @@ export function ProjectAccessGuard({
             <span>Go to My Projects</span>
           </Button>
         </Link>
-        <Button onClick={openLoginModal} className="gap-2">
-          <Building2 className="h-4 w-4" />
-          <span>Switch Account</span>
+        <Button onClick={logout} variant="secondary" className="gap-2">
+          <LogOut className="h-4 w-4" />
+          <span>Log Out</span>
         </Button>
       </div>
     </div>
