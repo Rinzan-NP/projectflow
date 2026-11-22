@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "@/components/shared/Avatar";
+import { ProjectFlowIcon } from "@/components/shared/ProjectFlowIcon";
 
 interface SidebarProps {
   onOpenCommandPalette: () => void;
@@ -90,17 +91,16 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
               href="/projects"
               className="flex items-center gap-2.5 font-bold tracking-tight text-foreground hover:opacity-85 transition-opacity"
             >
-              <div className="h-6 w-6 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs shadow-xs">
-                PF
-              </div>
+              <ProjectFlowIcon size={24} className="h-6 w-6 rounded-md shadow-xs shrink-0" />
               <span className="text-sm font-semibold tracking-tight">ProjectFlow</span>
             </Link>
           ) : (
             <Link
               href="/projects"
-              className="mx-auto h-7 w-7 rounded-md bg-primary flex items-center justify-center text-primary-foreground font-bold text-xs"
+              className="mx-auto flex items-center justify-center hover:opacity-85 transition-opacity"
+              title="ProjectFlow"
             >
-              PF
+              <ProjectFlowIcon size={26} className="h-6.5 w-6.5 rounded-md shadow-xs" />
             </Link>
           )}
 
