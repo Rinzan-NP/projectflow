@@ -15,9 +15,12 @@ interface KanbanColumnProps {
   stage: Stage;
   items: ItemWithRelations[];
   onItemClick: (item: ItemWithRelations) => void;
-  onQuickAdd: (stageId: string, title: string, type: ItemType, priority?: string) => Promise<void>;
+  onQuickAdd: (stageId: string, title: string, type: ItemType, priority?: string, projectKey?: string) => Promise<void>;
   projectName?: string;
   projectColor?: string;
+  allProjects?: any[];
+  showProjectSelect?: boolean;
+  defaultProjectKey?: string;
 }
 
 export function KanbanColumn({
@@ -27,6 +30,9 @@ export function KanbanColumn({
   onQuickAdd,
   projectName,
   projectColor,
+  allProjects = [],
+  showProjectSelect = false,
+  defaultProjectKey,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
@@ -105,7 +111,10 @@ export function KanbanColumn({
       <div className="p-2 pt-1 border-t border-border/40">
         <QuickAddCard
           stageId={stage.id}
-          onAdd={(title, type, priority) => onQuickAdd(stage.id, title, type, priority)}
+          onAdd={(title, type, priority, projectKey) => onQuickAdd(stage.id, title, type, priority, projectKey)}
+          projects={allProjects}
+          showProjectSelect={showProjectSelect}
+          defaultProjectKey={defaultProjectKey}
         />
       </div>
     </div>

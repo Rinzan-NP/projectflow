@@ -1,21 +1,40 @@
 "use client";
 
-import React, { useState } from "react";
-import { Plus, Check, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Plus, Check, X, FolderKanban } from "lucide-react";
 import { ItemType } from "@/lib/types";
-import { ItemTypeIcon } from "@/components/shared/ItemTypeIcon";
 
 interface QuickAddCardProps {
   stageId: string;
-  onAdd: (title: string, type: ItemType, priority?: string) => Promise<void>;
+  onAdd: (title: string, type: ItemType, priority?: string, projectKey?: string) => Promise<void>;
+  projects?: { id?: string; key: string; name: string; color?: string }[];
+  showProjectSelect?: boolean;
+  defaultProjectKey?: string;
 }
 
-export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
+export function QuickAddCard({
+  stageId,
+  onAdd,
+  projects = [],
+  showProjectSelect = false,
+  defaultProjectKey = "",
+}: QuickAddCardProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [type, setType] = useState<ItemType>("TASK");
   const [priority, setPriority] = useState<string>("MEDIUM");
+  const [selectedProjectKey, setSelectedProjectKey] = useState<string>(
+    defaultProjectKey || (projects.length > 0 ? projects[0].key : "")
+  );
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (defaultProjectKey) {
+      setSelectedProjectKey(defaultProjectKey);
+    } else if (projects.length > 0 && !selectedProjectKey) {
+      setSelectedProjectKey(projects[0].key);
+    }
+  }, [defaultProjectKey, projects, selectedProjectKey]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -23,7 +42,7 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
 
     setLoading(true);
     try {
-      await onAdd(title.trim(), type, priority);
+      await onAdd(title.trim(), type, priority, selectedProjectKey);
       setTitle("");
       // Keep input focused for rapid multi-item entry
     } catch (err) {
@@ -57,8 +76,27 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
 
   return (
     <div className="rounded-lg border bg-card p-2.5 shadow-sm space-y-2 animate-in fade-in-0 duration-150">
-      <div className="flex items-center justify-between gap-1">
-        <div className="flex items-center gap-1.5">
+      {/* Top Controls: Project (if in board page) + Type + Priority */}
+      <div className="flex items-center justify-between gap-1 flex-wrap">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {showProjectSelect && projects.length > 0 && (
+            <div className="flex items-center gap-1 bg-primary/10 border border-primary/30 rounded px-1.5 py-0.5">
+              <FolderKanban className="h-3 w-3 text-primary shrink-0" />
+              <select
+                value={selectedProjectKey}
+                onChange={(e) => setSelectedProjectKey(e.target.value)}
+                className="text-[11px] font-semibold bg-transparent cursor-pointer text-foreground focus:outline-none max-w-[130px] truncate"
+                title="Which Project?"
+              >
+                {projects.map((p) => (
+                  <option key={p.key} value={p.key}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <select
             value={type}
             onChange={(e) => setType(e.target.value as ItemType)}
@@ -86,7 +124,7 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
 
         <button
           onClick={() => setIsOpen(false)}
-          className="text-muted-foreground hover:text-foreground p-0.5"
+          className="text-muted-foreground hover:text-foreground p-0.5 cursor-pointer"
         >
           <X className="h-3 w-3" />
         </button>
@@ -95,7 +133,11 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
       <input
         autoFocus
         type="text"
-        placeholder="Item title... (Press Enter)"
+        placeholder={
+          showProjectSelect && projects.length > 0
+            ? `Item title for ${projects.find((p) => p.key === selectedProjectKey)?.name || "project"}...`
+            : "Item title... (Press Enter)"
+        }
         value={title}
         onChange={(e) => setTitle(e.target.value)}
         onKeyDown={handleKeyDown}
@@ -113,7 +155,7 @@ export function QuickAddCard({ stageId, onAdd }: QuickAddCardProps) {
         <button
           onClick={() => handleSubmit()}
           disabled={!title.trim() || loading}
-          className="text-[11px] px-2.5 py-1 rounded bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1"
+          className="text-[11px] px-2.5 py-1 rounded bg-primary text-primary-foreground font-semibold hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1 cursor-pointer"
         >
           <Check className="h-3 w-3" />
           <span>Add</span>

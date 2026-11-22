@@ -29,6 +29,7 @@ import { Stage, ItemWithRelations, ItemType, Priority } from "@/lib/types";
 import { KanbanColumn } from "@/components/board/KanbanColumn";
 import { ItemCard } from "@/components/board/ItemCard";
 import { ItemDetailModal } from "@/components/item-detail/ItemDetailModal";
+import { GlobalCreateModal } from "@/components/shared/GlobalCreateModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -154,6 +155,7 @@ export function KanbanBoard({
   const [items, setItems] = useState<ItemWithRelations[]>(initialItems);
   const [activeItem, setActiveItem] = useState<ItemWithRelations | null>(null);
   const [selectedItem, setSelectedItem] = useState<ItemWithRelations | null>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Filters
   const [search, setSearch] = useState("");
@@ -430,15 +432,19 @@ export function KanbanBoard({
     }
   };
 
-  // Quick Add Item Handler with Priority support
+  // Quick Add Item Handler with Priority & Project support
   const handleQuickAdd = async (
     stageId: string,
     title: string,
     type: ItemType,
-    priority: string = "MEDIUM"
+    priority: string = "MEDIUM",
+    chosenProjectKey?: string
   ) => {
     // Determine target project
-    let targetProjectKey = selectedProject !== "ALL" ? selectedProject : "";
+    let targetProjectKey =
+      chosenProjectKey ||
+      (selectedProject !== "ALL" ? selectedProject : (projectKey !== "ALL" ? projectKey : ""));
+
     if (!targetProjectKey && allProjects.length > 0) {
       targetProjectKey = allProjects[0].key;
     }
@@ -474,6 +480,9 @@ export function KanbanBoard({
 
       if (res.ok) {
         const newItem = await res.json();
+        if (!newItem.project && proj) {
+          newItem.project = { id: proj.id, name: proj.name, key: proj.key, color: proj.color };
+        }
         setItems((prev) => [...prev, newItem]);
       }
     } catch (err) {
@@ -494,6 +503,12 @@ export function KanbanBoard({
       setSelectedItem(null);
     }
   };
+
+  const isInsideProductPage = projectKey !== "ALL";
+  const showProjectSelectOnQuickAdd = !isInsideProductPage && selectedProject === "ALL";
+  const effectiveProjectKey = isInsideProductPage
+    ? projectKey
+    : (selectedProject !== "ALL" ? selectedProject : undefined);
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -578,7 +593,7 @@ export function KanbanBoard({
           </button>
         </div>
 
-        {/* Right: Priority & Assignee Filters */}
+        {/* Right: Priority, Type, Assignee Filters & Create Item Button */}
         <div className="flex items-center gap-2">
           {/* Priority */}
           <select
@@ -624,6 +639,16 @@ export function KanbanBoard({
               </option>
             ))}
           </select>
+
+          {/* New Item Button */}
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            size="sm"
+            className="h-8 text-xs font-semibold gap-1.5 shrink-0 bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-xs"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>New Item</span>
+          </Button>
         </div>
       </div>
 
@@ -647,6 +672,9 @@ export function KanbanBoard({
                 onQuickAdd={handleQuickAdd}
                 projectName={currentProj?.name}
                 projectColor={currentProj?.color}
+                allProjects={allProjects}
+                showProjectSelect={showProjectSelectOnQuickAdd}
+                defaultProjectKey={effectiveProjectKey}
               />
             );
           })}
@@ -676,6 +704,23 @@ export function KanbanBoard({
           onUpdate={handleUpdateItem}
           onDelete={handleDeleteItem}
           stages={activeStages}
+        />
+      )}
+
+      {/* Global / Board Create Item Modal */}
+      {isCreateModalOpen && (
+        <GlobalCreateModal
+          isOpen={isCreateModalOpen}
+          onClose={() => setIsCreateModalOpen(false)}
+          onSuccess={() => {
+            setIsCreateModalOpen(false);
+            fetch(projectKey === "ALL" ? "/api/items" : `/api/projects/${projectKey}/items`)
+              .then((r) => (r.ok ? r.json() : []))
+              .then((data) => setItems(data))
+              .catch(console.error);
+          }}
+          defaultProjectKey={effectiveProjectKey}
+          hideProjectSelect={isInsideProductPage}
         />
       )}
     </div>

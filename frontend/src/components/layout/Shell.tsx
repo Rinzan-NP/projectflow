@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { GlobalCreateModal } from "@/components/shared/GlobalCreateModal";
@@ -8,6 +9,11 @@ import { GlobalCreateModal } from "@/components/shared/GlobalCreateModal";
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const pathname = usePathname();
+
+  // If inside a project page (e.g. /projects/PP/board), extract the project key
+  const projectMatch = pathname ? pathname.match(/^\/projects\/([^/]+)/) : null;
+  const currentProjectKey = projectMatch ? decodeURIComponent(projectMatch[1]).toUpperCase() : undefined;
 
   // Global keyboard shortcuts: Cmd+K / Ctrl+K, 'c' to create, '/' to search
   useEffect(() => {
@@ -67,6 +73,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <GlobalCreateModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
+        defaultProjectKey={currentProjectKey}
+        hideProjectSelect={!!currentProjectKey}
       />
     </div>
   );

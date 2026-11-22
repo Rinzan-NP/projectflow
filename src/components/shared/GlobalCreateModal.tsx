@@ -27,6 +27,7 @@ interface GlobalCreateModalProps {
   defaultProjectKey?: string;
   defaultStageId?: string;
   defaultType?: ItemType;
+  hideProjectSelect?: boolean;
 }
 
 export function GlobalCreateModal({
@@ -36,6 +37,7 @@ export function GlobalCreateModal({
   defaultProjectKey,
   defaultStageId,
   defaultType = "TASK",
+  hideProjectSelect = false,
 }: GlobalCreateModalProps) {
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectKey, setSelectedProjectKey] = useState("");
@@ -240,19 +242,25 @@ export function GlobalCreateModal({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                Project *
+                {hideProjectSelect ? "Project" : "Project *"}
               </label>
-              <select
-                value={selectedProjectKey}
-                onChange={(e) => handleProjectChange(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-primary"
-              >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.key}>
-                    {p.name} [{p.company || "Company"}] ({p.key})
-                  </option>
-                ))}
-              </select>
+              {hideProjectSelect ? (
+                <div className="flex h-9 items-center rounded-md border border-border/60 bg-muted/40 px-3 text-xs font-semibold text-foreground">
+                  {projects.find((p) => p.key?.toUpperCase() === selectedProjectKey?.toUpperCase())?.name || selectedProjectKey}
+                </div>
+              ) : (
+                <select
+                  value={selectedProjectKey}
+                  onChange={(e) => handleProjectChange(e.target.value)}
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-primary font-medium"
+                >
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.key}>
+                      {p.name} [{p.company || "Company"}] ({p.key})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
