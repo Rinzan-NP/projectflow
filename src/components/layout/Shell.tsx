@@ -5,8 +5,10 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { CommandPalette } from "@/components/command-palette/CommandPalette";
 import { GlobalCreateModal } from "@/components/shared/GlobalCreateModal";
+import { AuthProvider } from "@/lib/auth";
+import { LoginModal } from "@/components/auth/LoginModal";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
+function AppShellContent({ children }: { children: React.ReactNode }) {
   const [isCommandOpen, setIsCommandOpen] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const pathname = usePathname();
@@ -76,6 +78,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         defaultProjectKey={currentProjectKey}
         hideProjectSelect={!!currentProjectKey}
       />
+
+      <LoginModal />
     </div>
+  );
+}
+
+export function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthProvider>
+      <AppShellContent>{children}</AppShellContent>
+    </AuthProvider>
   );
 }

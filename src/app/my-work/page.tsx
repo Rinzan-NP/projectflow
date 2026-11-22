@@ -16,24 +16,34 @@ import { ItemTypeIcon } from "@/components/shared/ItemTypeIcon";
 import { PriorityIcon } from "@/components/shared/PriorityIcon";
 import { ItemDetailModal } from "@/components/item-detail/ItemDetailModal";
 import { formatDate } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 export default function MyWorkPage() {
+  const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
-  const currentUser = "Rinzan";
+  const currentUser = user.name;
 
   const fetchMyWork = async () => {
     try {
       // Fetch projects to get all user's items
       const projectsRes = await fetch("/api/projects").then((r) => r.json());
+      const allowedProjects = user.company !== "ALL"
+        ? projectsRes.filter((p: any) => p.company === user.company)
+        : projectsRes;
+
       const allItems: any[] = [];
 
-      for (const p of projectsRes) {
+      for (const p of allowedProjects) {
         const pItems = await fetch(`/api/projects/${p.key}/items`).then((r) => r.json());
         pItems.forEach((i: any) => {
-          if (i.assignee === currentUser) {
+          if (
+            i.assignee === currentUser ||
+            i.reporter === user.username ||
+            user.company !== "ALL"
+          ) {
             allItems.push({ ...i, project: p });
           }
         });
@@ -48,7 +58,7 @@ export default function MyWorkPage() {
 
   useEffect(() => {
     fetchMyWork();
-  }, []);
+  }, [user.company, user.username]);
 
   // Group items by due date buckets
   const grouped = useMemo(() => {

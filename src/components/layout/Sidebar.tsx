@@ -24,6 +24,7 @@ import {
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "@/components/shared/Avatar";
 import { ProjectFlowIcon } from "@/components/shared/ProjectFlowIcon";
+import { useAuth } from "@/lib/auth";
 
 interface SidebarProps {
   onOpenCommandPalette: () => void;
@@ -33,6 +34,7 @@ interface SidebarProps {
 export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, openLoginModal } = useAuth();
 
   const [projects, setProjects] = useState<any[]>([]);
   const [companies, setCompanies] = useState<string[]>([]);
@@ -70,10 +72,13 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
     }
   }, [pathname]);
 
+  // Effective company filter: locked to user.company for clients, or selectedCompany for admin
+  const effectiveCompany = user.company !== "ALL" ? user.company : selectedCompany;
+
   // Filter projects by selected company
   const filteredProjects = projects.filter((p) => {
-    if (selectedCompany === "ALL") return true;
-    return p.company === selectedCompany;
+    if (effectiveCompany === "ALL") return true;
+    return p.company === effectiveCompany;
   });
 
   return (
@@ -119,22 +124,31 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
         {/* Company Switcher */}
         {!collapsed && (
           <div className="relative mt-1">
-            <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-muted/60 border border-border/80 text-xs">
-              <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-              <select
-                value={selectedCompany}
-                onChange={(e) => setSelectedCompany(e.target.value)}
-                className="w-full bg-transparent font-medium text-xs text-foreground cursor-pointer outline-none truncate"
-                title="Filter by Company"
-              >
-                <option value="ALL">All Companies ({companies.length})</option>
-                {companies.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {user.company !== "ALL" ? (
+              <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-primary/10 border border-primary/20 text-xs shadow-2xs">
+                <Building2 className="h-3.5 w-3.5 text-primary shrink-0" />
+                <span className="font-semibold text-primary truncate">
+                  {user.company} Workspace
+                </span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-muted/60 border border-border/80 text-xs">
+                <Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <select
+                  value={selectedCompany}
+                  onChange={(e) => setSelectedCompany(e.target.value)}
+                  className="w-full bg-transparent font-medium text-xs text-foreground cursor-pointer outline-none truncate"
+                  title="Filter by Company"
+                >
+                  <option value="ALL">All Companies ({companies.length})</option>
+                  {companies.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -340,19 +354,33 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
 
       {/* Bottom User Bar & Minimal Theme Switcher */}
       <div className="p-3 border-t flex items-center justify-between gap-2 bg-card">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <Avatar name="Rinzan" size="sm" />
+        <button
+          onClick={openLoginModal}
+          className="flex items-center gap-2.5 overflow-hidden text-left hover:opacity-85 transition-opacity cursor-pointer group flex-1 min-w-0"
+          title="Switch Account / Sign In"
+        >
+          <div
+            className="h-8 w-8 rounded-lg text-white font-bold text-xs flex items-center justify-center shrink-0 shadow-xs"
+            style={{ backgroundColor: user.avatarBg }}
+          >
+            {user.avatarText}
+          </div>
           {!collapsed && (
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-semibold text-foreground truncate">
-                Rinzan
+                {user.name}
               </span>
-              <span className="text-[10px] text-muted-foreground truncate">
-                {selectedCompany === "ALL" ? "All Companies" : selectedCompany}
-              </span>
+              <div className="flex items-center gap-1">
+                <span className="text-[10px] text-muted-foreground truncate">
+                  @{user.username}
+                </span>
+                <span className="text-[10px] text-primary font-medium underline underline-offset-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  Switch
+                </span>
+              </div>
             </div>
           )}
-        </div>
+        </button>
 
         {!collapsed && <ThemeToggle />}
       </div>

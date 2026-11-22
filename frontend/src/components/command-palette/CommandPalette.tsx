@@ -14,6 +14,7 @@ import {
   Command,
 } from "lucide-react";
 import { ItemTypeIcon } from "@/components/shared/ItemTypeIcon";
+import { useAuth } from "@/lib/auth";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -27,6 +28,7 @@ export function CommandPalette({
   onOpenCreateItem,
 }: CommandPaletteProps) {
   const router = useRouter();
+  const { user } = useAuth();
   const [query, setQuery] = useState("");
   const [projects, setProjects] = useState<any[]>([]);
   const [items, setItems] = useState<any[]>([]);
@@ -43,10 +45,13 @@ export function CommandPalette({
     setLoading(true);
     try {
       const pRes = await fetch("/api/projects").then((r) => r.json());
-      setProjects(pRes);
+      const allowedProjects = user.company !== "ALL"
+        ? pRes.filter((p: any) => p.company === user.company)
+        : pRes;
+      setProjects(allowedProjects);
 
-      // Fetch items across projects
-      const itemPromises = pRes.map((p: any) =>
+      // Fetch items across allowed projects
+      const itemPromises = allowedProjects.map((p: any) =>
         fetch(`/api/projects/${p.key}/items`).then((r) => r.json())
       );
       const itemsNested = await Promise.all(itemPromises);

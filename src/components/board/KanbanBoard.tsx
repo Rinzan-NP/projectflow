@@ -32,6 +32,7 @@ import { ItemDetailModal } from "@/components/item-detail/ItemDetailModal";
 import { GlobalCreateModal } from "@/components/shared/GlobalCreateModal";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth";
 
 interface KanbanBoardProps {
   projectKey: string;
@@ -150,6 +151,7 @@ export function KanbanBoard({
   initialItems = [],
   allProjects: initialAllProjects = [],
 }: KanbanBoardProps) {
+  const { user } = useAuth();
   const [selectedProject, setSelectedProject] = useState<string>(projectKey || "ALL");
   const [allProjects, setAllProjects] = useState<any[]>(initialAllProjects);
   const [items, setItems] = useState<ItemWithRelations[]>(initialItems);
@@ -164,7 +166,13 @@ export function KanbanBoard({
   const [assigneeFilter, setAssigneeFilter] = useState("ALL");
   const [quickToggle, setQuickToggle] = useState<"ALL" | "BUGS" | "FEATURES" | "MY">("ALL");
 
-  const currentUser = "Rinzan";
+  const currentUser = user.name;
+
+  // Filter available projects for user's company
+  const visibleProjects = useMemo(() => {
+    if (user.company === "ALL") return allProjects;
+    return allProjects.filter((p) => p.company === user.company);
+  }, [allProjects, user.company]);
 
   // Fetch projects list if not supplied
   useEffect(() => {
@@ -176,15 +184,19 @@ export function KanbanBoard({
     }
   }, [allProjects.length]);
 
-  // If in ALL mode and items empty, fetch all items
+  // If in ALL mode and items empty (or user company changed), fetch items
   useEffect(() => {
-    if (selectedProject === "ALL" && items.length === 0) {
-      fetch("/api/items")
+    if (selectedProject === "ALL") {
+      const url =
+        user.company !== "ALL"
+          ? `/api/items?company=${encodeURIComponent(user.company)}`
+          : "/api/items";
+      fetch(url)
         .then((r) => (r.ok ? r.json() : []))
         .then((data) => setItems(data))
         .catch(console.error);
     }
-  }, [selectedProject, items.length]);
+  }, [selectedProject, user.company]);
 
   // Determine active stages
   const activeStages = useMemo(() => {
@@ -203,6 +215,15 @@ export function KanbanBoard({
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
+      // Company isolation for client logins
+      if (user.company !== "ALL") {
+        const itemProjKey = (item.project?.key || item.humanId.split("-")[0] || "").toUpperCase();
+        const belongsToUserCompany =
+          item.project?.company === user.company ||
+          visibleProjects.some((p) => p.key.toUpperCase() === itemProjKey);
+        if (!belongsToUserCompany) return false;
+      }
+
       // Project filter
       if (selectedProject !== "ALL") {
         const itemProjKey = item.project?.key || item.humanId.split("-")[0];
@@ -236,7 +257,7 @@ export function KanbanBoard({
 
       return true;
     });
-  }, [items, selectedProject, search, typeFilter, priorityFilter, assigneeFilter, quickToggle]);
+  }, [items, selectedProject, search, typeFilter, priorityFilter, assigneeFilter, quickToggle, user.company, visibleProjects, currentUser]);
 
   // Group items by stage
   const itemsByStage = useMemo(() => {
@@ -445,7 +466,9 @@ export function KanbanBoard({
       chosenProjectKey ||
       (selectedProject !== "ALL" ? selectedProject : (projectKey !== "ALL" ? projectKey : ""));
 
-    if (!targetProjectKey && allProjects.length > 0) {
+    if (!targetProjectKey && visibleProjects.length > 0) {
+      targetProjectKey = visibleProjects[0].key;
+    } else if (!targetProjectKey && allProjects.length > 0) {
       targetProjectKey = allProjects[0].key;
     }
 
@@ -454,7 +477,9 @@ export function KanbanBoard({
       return;
     }
 
-    const proj = allProjects.find(
+    const proj = visibleProjects.find(
+      (p) => p.key.toUpperCase() === targetProjectKey.toUpperCase()
+    ) || allProjects.find(
       (p) => p.key.toUpperCase() === targetProjectKey.toUpperCase()
     );
 
@@ -475,6 +500,7 @@ export function KanbanBoard({
           type,
           stageId: actualStageId,
           priority: priority || "MEDIUM",
+          reporter: user.username,
         }),
       });
 
@@ -508,7 +534,7 @@ export function KanbanBoard({
   const showProjectSelectOnQuickAdd = !isInsideProductPage && selectedProject === "ALL";
   const effectiveProjectKey = isInsideProductPage
     ? projectKey
-    : (selectedProject !== "ALL" ? selectedProject : undefined);
+    : (selectedProject !== "ALL" ? selectedProject : (visibleProjects[0]?.key || undefined));
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -525,8 +551,12 @@ export function KanbanBoard({
               className="text-xs bg-transparent font-semibold text-foreground cursor-pointer outline-none"
               title="Filter by Project"
             >
-              <option value="ALL">All Projects ({allProjects.length})</option>
-              {allProjects.map((p) => (
+              <option value="ALL">
+                {user.company !== "ALL"
+                  ? `All ${user.company} Projects (${visibleProjects.length})`
+                  : `All Projects (${visibleProjects.length})`}
+              </option>
+              {visibleProjects.map((p) => (
                 <option key={p.key} value={p.key}>
                   {p.name}
                 </option>
@@ -714,7 +744,11 @@ export function KanbanBoard({
           onClose={() => setIsCreateModalOpen(false)}
           onSuccess={() => {
             setIsCreateModalOpen(false);
-            fetch(projectKey === "ALL" ? "/api/items" : `/api/projects/${projectKey}/items`)
+            const url =
+              projectKey === "ALL"
+                ? (user.company !== "ALL" ? `/api/items?company=${encodeURIComponent(user.company)}` : "/api/items")
+                : `/api/projects/${projectKey}/items`;
+            fetch(url)
               .then((r) => (r.ok ? r.json() : []))
               .then((data) => setItems(data))
               .catch(console.error);

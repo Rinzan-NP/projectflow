@@ -19,6 +19,7 @@ def serialize_item(item: Item):
             "key": item.project.key,
             "name": item.project.name,
             "color": item.project.color,
+            "company": getattr(item.project, "company", None),
             "priority": getattr(item.project, "priority", "MEDIUM") or "MEDIUM",
         } if item.project else None,
         "stageId": item.stageId,
@@ -86,6 +87,7 @@ def serialize_item(item: Item):
 def get_all_items(
     projectId: Optional[str] = None,
     projectKey: Optional[str] = None,
+    company: Optional[str] = None,
     type: Optional[str] = None,
     priority: Optional[str] = None,
     assignee: Optional[str] = None,
@@ -99,6 +101,8 @@ def get_all_items(
         query = query.filter((Item.projectId == projectId) | (Project.key == projectId.upper()))
     if projectKey and projectKey != "ALL":
         query = query.filter(Project.key == projectKey.upper())
+    if company and company != "ALL":
+        query = query.filter(Project.company == company)
     if type and type != "ALL":
         query = query.filter(Item.type == type)
     if priority and priority != "ALL":

@@ -7,8 +7,10 @@ import { Input } from "@/components/ui/input";
 import { ProjectCard } from "@/components/projects/ProjectCard";
 import { CreateProjectModal } from "@/components/projects/CreateProjectModal";
 import { EditProjectModal } from "@/components/projects/EditProjectModal";
+import { useAuth } from "@/lib/auth";
 
 export default function ProjectsPage() {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -18,12 +20,14 @@ export default function ProjectsPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editingProject, setEditingProject] = useState<any | null>(null);
 
+  const effectiveCompany = user.company !== "ALL" ? user.company : companyFilter;
+
   const fetchProjects = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
       if (statusFilter !== "ALL") params.set("status", statusFilter);
-      if (companyFilter !== "ALL") params.set("company", companyFilter);
+      if (effectiveCompany !== "ALL") params.set("company", effectiveCompany);
       if (searchQuery.trim()) params.set("q", searchQuery.trim());
 
       const res = await fetch(`/api/projects?${params.toString()}`);
@@ -45,7 +49,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects();
-  }, [statusFilter, companyFilter]);
+  }, [statusFilter, companyFilter, user.company]);
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -58,20 +62,24 @@ export default function ProjectsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Projects Dashboard
+            {user.company !== "ALL" ? `${user.company} Projects` : "Projects Dashboard"}
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Manage projects, monitor completion progress, and track open issues.
+            {user.company !== "ALL"
+              ? `Manage ${user.company} projects, monitor completion progress, and track open issues.`
+              : "Manage projects, monitor completion progress, and track open issues."}
           </p>
         </div>
 
-        <Button
-          onClick={() => setIsCreateOpen(true)}
-          className="gap-2 shadow-sm font-semibold"
-        >
-          <Plus className="h-4 w-4" />
-          <span>New Project</span>
-        </Button>
+        {user.company === "ALL" && (
+          <Button
+            onClick={() => setIsCreateOpen(true)}
+            className="gap-2 shadow-sm font-semibold"
+          >
+            <Plus className="h-4 w-4" />
+            <span>New Project</span>
+          </Button>
+        )}
       </div>
 
       {/* Filter Bar */}
@@ -87,8 +95,12 @@ export default function ProjectsPage() {
         </form>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Company Filter */}
-          {companies.length > 0 && (
+          {/* Company Filter (only visible for Admin, badge shown for clients) */}
+          {user.company !== "ALL" ? (
+            <div className="text-xs bg-primary/10 text-primary border border-primary/20 rounded-md px-2.5 py-1.5 font-semibold">
+              {user.company} Workspace
+            </div>
+          ) : companies.length > 0 ? (
             <select
               value={companyFilter}
               onChange={(e) => setCompanyFilter(e.target.value)}
@@ -101,7 +113,7 @@ export default function ProjectsPage() {
                 </option>
               ))}
             </select>
-          )}
+          ) : null}
 
           <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground mr-1">
             <Filter className="h-3.5 w-3.5" />

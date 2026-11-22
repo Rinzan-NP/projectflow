@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ItemType, Priority, BugSeverity } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
 
 interface GlobalCreateModalProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ export function GlobalCreateModal({
   defaultType = "TASK",
   hideProjectSelect = false,
 }: GlobalCreateModalProps) {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
   const [selectedProjectKey, setSelectedProjectKey] = useState("");
   const [stages, setStages] = useState<any[]>([]);
@@ -66,16 +68,23 @@ export function GlobalCreateModal({
       fetch("/api/projects")
         .then((r) => r.json())
         .then((data) => {
-          setProjects(data);
-          if (data.length > 0) {
-            const initialKey = defaultProjectKey || data[0].key;
+          const allowed =
+            user.company !== "ALL"
+              ? data.filter((p: any) => p.company === user.company)
+              : data;
+          setProjects(allowed);
+          if (allowed.length > 0) {
+            const initialKey =
+              defaultProjectKey && allowed.some((p: any) => p.key === defaultProjectKey)
+                ? defaultProjectKey
+                : allowed[0].key;
             setSelectedProjectKey(initialKey);
             fetchStages(initialKey);
           }
         })
         .catch((err) => console.error("Failed to load projects:", err));
     }
-  }, [isOpen, defaultProjectKey, defaultType]);
+  }, [isOpen, defaultProjectKey, defaultType, user.company]);
 
   const fetchStages = async (key: string) => {
     try {
@@ -129,6 +138,7 @@ export function GlobalCreateModal({
           priority,
           stageId: selectedStageId,
           assignee: assignee || null,
+          reporter: user.username,
           severity: type === "BUG" ? severity : null,
           environment: type === "BUG" && environment.trim() ? environment.trim() : null,
           stepsToReproduce:

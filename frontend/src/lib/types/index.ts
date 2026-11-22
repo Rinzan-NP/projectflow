@@ -41,6 +41,8 @@ export type ItemWithRelations = Item & {
     key: string;
     name: string;
     color: string;
+    company?: string | null;
+    priority?: Priority | null;
   };
   labels?: (ItemLabel & { label: Label })[];
   checklists?: ChecklistItem[];
