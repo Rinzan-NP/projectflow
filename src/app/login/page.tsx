@@ -83,7 +83,7 @@ export default function LoginPage() {
                   id="username"
                   autoFocus
                   type="text"
-                  placeholder="e.g. solinify_1"
+                  placeholder="Enter your username"
                   value={username}
                   onChange={(e) => {
                     setUsername(e.target.value);
@@ -121,12 +121,6 @@ export default function LoginPage() {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 pt-4 border-t text-center">
-            <p className="text-[11px] text-muted-foreground">
-              Sign in with your assigned username (<span className="font-mono text-foreground">nprinzan</span>, <span className="font-mono text-foreground">solinify_1</span>, or <span className="font-mono text-foreground">gingr_h</span>).
-            </p>
-          </div>
         </div>
 
         {/* Footer */}
