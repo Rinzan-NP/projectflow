@@ -15,16 +15,19 @@ logger = logging.getLogger("projectflow")
 
 from sqlalchemy import text
 
-# Create tables if not exist
-Base.metadata.create_all(bind=engine)
-
-# Safe SQLite column migration for Project priority
-try:
-    with engine.connect() as conn:
-        conn.execute(text('ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS priority VARCHAR DEFAULT \'MEDIUM\''))
-        conn.commit()
-except Exception:
-    pass
+# Safe database initialization
+def init_db():
+    try:
+        Base.metadata.create_all(bind=engine)
+        try:
+            with engine.connect() as conn:
+                conn.execute(text('ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS priority VARCHAR DEFAULT \'MEDIUM\''))
+                conn.commit()
+        except Exception as e:
+            logger.warning(f"Migration note: {e}")
+        auto_seed_if_empty()
+    except Exception as e:
+        logger.error(f"DB initialization note: {e}")
 
 def auto_seed_if_empty():
     db = SessionLocal()
@@ -73,8 +76,8 @@ def auto_seed_if_empty():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Auto-seed default projects if empty
-    auto_seed_if_empty()
+    # Initialize DB safely on startup
+    init_db()
 
     # Startup: Start Telegram Bot background task if token is set
     bot_task = None
