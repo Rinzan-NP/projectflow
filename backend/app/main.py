@@ -48,7 +48,7 @@ def auto_seed_if_empty():
                     icon="FolderKanban",
                     status="ACTIVE",
                     owner="Rinzan",
-                    members="Alex Rivers,Sam Taylor,Jordan Lee",
+                    members="Sam Taylor,Jordan Lee",
                     itemCounter=0,
                 )
                 db.add(proj)

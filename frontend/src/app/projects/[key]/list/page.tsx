@@ -48,7 +48,7 @@ export default function ProjectListPage({
   const [sortField, setSortField] = useState<"id" | "title" | "priority" | "dueDate" | "updatedAt">("updatedAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  const allMembers = ["Alex Rivers", "Sam Taylor", "Jordan Lee", "Morgan Chen"];
+  const allMembers = ["Rinzan", "Sam Taylor", "Jordan Lee", "Morgan Chen"];
 
   const fetchData = async () => {
     try {

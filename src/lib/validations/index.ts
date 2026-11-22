@@ -10,8 +10,8 @@ export const projectSchema = z.object({
   status: z.enum(["ACTIVE", "ON_HOLD", "COMPLETED", "ARCHIVED"]).default("ACTIVE"),
   startDate: z.string().datetime().optional().nullable(),
   targetDate: z.string().datetime().optional().nullable(),
-  owner: z.string().min(1, "Owner is required").default("Alex Rivers"),
-  members: z.string().default("Alex Rivers,Sam Taylor,Jordan Lee"),
+  owner: z.string().min(1, "Owner is required").default("Rinzan"),
+  members: z.string().default("Sam Taylor,Jordan Lee"),
 });
 
 export const stageSchema = z.object({
@@ -29,7 +29,7 @@ export const itemSchema = z.object({
   priority: z.enum(["CRITICAL", "HIGH", "MEDIUM", "LOW"]).default("MEDIUM"),
   stageId: z.string(),
   assignee: z.string().optional().nullable(),
-  reporter: z.string().default("Alex Rivers"),
+  reporter: z.string().default("Rinzan"),
   dueDate: z.string().datetime().optional().nullable(),
   estimateHours: z.number().positive().optional().nullable(),
   parentId: z.string().optional().nullable(),

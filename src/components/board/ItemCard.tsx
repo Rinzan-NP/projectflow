@@ -14,9 +14,19 @@ interface ItemCardProps {
   item: ItemWithRelations;
   onClick: (item: ItemWithRelations) => void;
   isOverlay?: boolean;
+  projectName?: string;
+  projectColor?: string;
 }
 
-export function ItemCard({ item, onClick, isOverlay = false }: ItemCardProps) {
+export function ItemCard({
+  item,
+  onClick,
+  isOverlay = false,
+  projectName,
+  projectColor,
+}: ItemCardProps) {
+  const projName = item.project?.name || projectName;
+  const projColor = item.project?.color || projectColor || "#3b82f6";
   const {
     attributes,
     listeners,
@@ -66,17 +76,17 @@ export function ItemCard({ item, onClick, isOverlay = false }: ItemCardProps) {
           <span className="font-mono text-[11px] font-semibold text-muted-foreground group-hover:text-primary transition-colors">
             {item.humanId}
           </span>
-          {item.project && (
+          {projName && (
             <span
-              className="text-[9px] font-bold px-1.5 py-0.2 rounded font-mono shrink-0 border uppercase tracking-wider"
+              className="text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 border truncate max-w-[130px]"
               style={{
-                backgroundColor: `${item.project.color}15`,
-                color: item.project.color,
-                borderColor: `${item.project.color}35`,
+                backgroundColor: `${projColor}15`,
+                color: projColor,
+                borderColor: `${projColor}35`,
               }}
-              title={item.project.name}
+              title={item.project?.key ? `${projName} (${item.project.key})` : projName}
             >
-              {item.project.key}
+              {projName}
             </span>
           )}
         </div>

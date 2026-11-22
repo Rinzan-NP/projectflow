@@ -37,8 +37,8 @@ class ProjectBase(BaseModel):
     priority: Optional[str] = "MEDIUM"
     startDate: Optional[datetime] = None
     targetDate: Optional[datetime] = None
-    owner: Optional[str] = "Alex Rivers"
-    members: Optional[str] = "Alex Rivers,Sam Taylor,Jordan Lee"
+    owner: Optional[str] = "Rinzan"
+    members: Optional[str] = "Sam Taylor,Jordan Lee"
 
 class ProjectCreate(ProjectBase):
     pass
@@ -69,7 +69,7 @@ class ItemBase(BaseModel):
     description: Optional[str] = None
     priority: Optional[str] = "MEDIUM"
     assignee: Optional[str] = None
-    reporter: Optional[str] = "Alex Rivers"
+    reporter: Optional[str] = "Rinzan"
     dueDate: Optional[datetime] = None
     estimateHours: Optional[float] = None
     parentId: Optional[str] = None
@@ -130,7 +130,7 @@ class DocumentBase(BaseModel):
     category: Optional[str] = "PRD"
     description: Optional[str] = None
     content: Optional[str] = None
-    author: Optional[str] = "Alex Rivers"
+    author: Optional[str] = "Rinzan"
 
 class DocumentCreate(DocumentBase):
     fileUrl: Optional[str] = None

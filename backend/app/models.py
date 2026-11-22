@@ -33,8 +33,8 @@ class Project(Base):
     startDate = Column(DateTime, nullable=True)
     targetDate = Column(DateTime, nullable=True)
 
-    owner = Column(String, default="Alex Rivers", nullable=False)
-    members = Column(String, default="Alex Rivers,Sam Taylor,Jordan Lee", nullable=False)
+    owner = Column(String, default="Rinzan", nullable=False)
+    members = Column(String, default="Sam Taylor,Jordan Lee", nullable=False)
     itemCounter = Column(Integer, default=0, nullable=False)
 
     createdAt = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -101,7 +101,7 @@ class Item(Base):
     priority = Column(String, default="MEDIUM", nullable=False)
 
     assignee = Column(String, nullable=True, index=True)
-    reporter = Column(String, default="Alex Rivers", nullable=False)
+    reporter = Column(String, default="Rinzan", nullable=False)
     dueDate = Column(DateTime, nullable=True)
     estimateHours = Column(Float, nullable=True)
     order = Column(Float, default=0.0, nullable=False)
@@ -182,7 +182,7 @@ class ActivityLog(Base):
 
     id = Column(String, primary_key=True, default=generate_id)
     itemId = Column(String, ForeignKey("Item.id", ondelete="CASCADE"), nullable=False)
-    author = Column(String, default="Alex Rivers", nullable=False)
+    author = Column(String, default="Rinzan", nullable=False)
     action = Column(String, nullable=False)
     fromValue = Column(String, nullable=True)
     toValue = Column(String, nullable=True)
@@ -220,7 +220,7 @@ class ProjectDocument(Base):
     mimeType = Column(String, nullable=True)
     content = Column(Text, nullable=True)
 
-    author = Column(String, default="Alex Rivers", nullable=False)
+    author = Column(String, default="Rinzan", nullable=False)
     createdAt = Column(DateTime, default=datetime.utcnow, nullable=False)
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

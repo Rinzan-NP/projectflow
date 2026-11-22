@@ -186,7 +186,7 @@ def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)
         description=data.description,
         priority=data.priority or "MEDIUM",
         assignee=data.assignee,
-        reporter=data.reporter or "Alex Rivers",
+        reporter=data.reporter or "Rinzan",
         dueDate=data.dueDate,
         estimateHours=data.estimateHours,
         order=order,
@@ -220,7 +220,7 @@ def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)
     # Activity log
     log = ActivityLog(
         itemId=item.id,
-        author=data.reporter or "Alex Rivers",
+        author=data.reporter or "Rinzan",
         action="created this item",
     )
     db.add(log)
@@ -256,7 +256,7 @@ def update_item(id: str, data: ItemUpdate, db: Session = Depends(get_db)):
 
             log = ActivityLog(
                 itemId=item.id,
-                author=item.reporter or "Alex Rivers",
+                author=item.reporter or "Rinzan",
                 action="moved stage",
                 fromValue=old_stage_name,
                 toValue=new_stage.name,
@@ -329,7 +329,7 @@ def reorder_item(payload: ItemReorder, db: Session = Depends(get_db)):
         if stage_changed:
             log = ActivityLog(
                 itemId=item.id,
-                author=item.assignee or item.reporter or "Alex Rivers",
+                author=item.assignee or item.reporter or "Rinzan",
                 action="moved stage",
                 fromValue=old_stage_name,
                 toValue=target_stage.name,

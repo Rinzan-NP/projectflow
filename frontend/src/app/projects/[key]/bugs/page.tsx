@@ -59,7 +59,7 @@ export default function BugTrackerPage({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const allMembers = ["Alex Rivers", "Sam Taylor", "Jordan Lee", "Morgan Chen"];
+  const allMembers = ["Rinzan", "Sam Taylor", "Jordan Lee", "Morgan Chen"];
 
   const fetchData = async () => {
     try {

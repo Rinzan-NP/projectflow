@@ -47,7 +47,7 @@ async def create_document(
         title = form.get("title") or (file.filename if hasattr(file, "filename") else "Untitled")
         category = form.get("category") or "PRD"
         description = form.get("description")
-        author = form.get("author") or project.owner or "Alex Rivers"
+        author = form.get("author") or project.owner or "Rinzan"
         content = form.get("content")
 
         file_url = None
@@ -103,7 +103,7 @@ async def create_document(
         fileName=data.get("fileName"),
         fileSize=data.get("fileSize"),
         mimeType=data.get("mimeType", "text/markdown" if data.get("content") else None),
-        author=data.get("author", project.owner or "Alex Rivers"),
+        author=data.get("author", project.owner or "Rinzan"),
     )
     db.add(doc)
     db.commit()

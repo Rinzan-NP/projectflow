@@ -355,11 +355,11 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
       {/* Bottom User Bar & Minimal Theme Switcher */}
       <div className="p-3 border-t flex items-center justify-between gap-2 bg-card">
         <div className="flex items-center gap-2 overflow-hidden">
-          <Avatar name="Alex Rivers" size="sm" />
+          <Avatar name="Rinzan" size="sm" />
           {!collapsed && (
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-semibold text-foreground truncate">
-                Alex Rivers
+                Rinzan
               </span>
               <span className="text-[10px] text-muted-foreground truncate">
                 {selectedCompany === "ALL" ? "All Companies" : selectedCompany}

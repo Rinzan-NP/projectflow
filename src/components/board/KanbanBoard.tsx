@@ -162,7 +162,7 @@ export function KanbanBoard({
   const [assigneeFilter, setAssigneeFilter] = useState("ALL");
   const [quickToggle, setQuickToggle] = useState<"ALL" | "BUGS" | "FEATURES" | "MY">("ALL");
 
-  const currentUser = "Alex Rivers";
+  const currentUser = "Rinzan";
 
   // Fetch projects list if not supplied
   useEffect(() => {
@@ -513,7 +513,7 @@ export function KanbanBoard({
               <option value="ALL">All Projects ({allProjects.length})</option>
               {allProjects.map((p) => (
                 <option key={p.key} value={p.key}>
-                  {p.name} ({p.key})
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -636,20 +636,33 @@ export function KanbanBoard({
         onDragEnd={handleDragEnd}
       >
         <div className="flex gap-4 overflow-x-auto pb-4 pt-1 items-start min-h-[calc(100vh-16rem)]">
-          {activeStages.map((stage) => (
-            <KanbanColumn
-              key={stage.id}
-              stage={stage}
-              items={itemsByStage[stage.id] || []}
-              onItemClick={(item) => setSelectedItem(item)}
-              onQuickAdd={handleQuickAdd}
-            />
-          ))}
+          {activeStages.map((stage) => {
+            const currentProj = allProjects.find((p) => p.key === selectedProject);
+            return (
+              <KanbanColumn
+                key={stage.id}
+                stage={stage}
+                items={itemsByStage[stage.id] || []}
+                onItemClick={(item) => setSelectedItem(item)}
+                onQuickAdd={handleQuickAdd}
+                projectName={currentProj?.name}
+                projectColor={currentProj?.color}
+              />
+            );
+          })}
         </div>
 
         {/* Drag Overlay for smooth preview */}
         <DragOverlay>
-          {activeItem ? <ItemCard item={activeItem} onClick={() => {}} isOverlay /> : null}
+          {activeItem ? (
+            <ItemCard
+              item={activeItem}
+              onClick={() => {}}
+              isOverlay
+              projectName={allProjects.find((p) => p.key === selectedProject)?.name}
+              projectColor={allProjects.find((p) => p.key === selectedProject)?.color}
+            />
+          ) : null}
         </DragOverlay>
       </DndContext>
 

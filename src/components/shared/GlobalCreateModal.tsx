@@ -46,7 +46,7 @@ export function GlobalCreateModal({
   const [description, setDescription] = useState("");
   const [type, setType] = useState<ItemType>(defaultType);
   const [priority, setPriority] = useState<Priority>("MEDIUM");
-  const [assignee, setAssignee] = useState("Alex Rivers");
+  const [assignee, setAssignee] = useState("Rinzan");
   const [severity, setSeverity] = useState<BugSeverity>("MAJOR");
   const [environment, setEnvironment] = useState("");
   const [stepsToReproduce, setStepsToReproduce] = useState("");
@@ -322,7 +322,7 @@ export function GlobalCreateModal({
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-primary"
               >
                 <option value="">Unassigned</option>
-                <option value="Alex Rivers">Alex Rivers</option>
+                <option value="Rinzan">Rinzan</option>
                 <option value="Sam Taylor">Sam Taylor</option>
                 <option value="Jordan Lee">Jordan Lee</option>
                 <option value="Morgan Chen">Morgan Chen</option>

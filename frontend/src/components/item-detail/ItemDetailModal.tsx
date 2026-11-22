@@ -54,7 +54,7 @@ export function ItemDetailModal({
   onUpdate,
   onDelete,
   stages,
-  allMembers = ["Alex Rivers", "Sam Taylor", "Jordan Lee", "Morgan Chen"],
+  allMembers = ["Rinzan", "Sam Taylor", "Jordan Lee", "Morgan Chen"],
 }: ItemDetailModalProps) {
   if (!isOpen || !item) return null;
 
@@ -156,7 +156,7 @@ export function ItemDetailModal({
     if (!newCommentBody.trim()) return;
     await handleSaveField({
       newCommentBody: newCommentBody.trim(),
-      commentAuthor: "Alex Rivers",
+      commentAuthor: "Rinzan",
     });
     setNewCommentBody("");
   };

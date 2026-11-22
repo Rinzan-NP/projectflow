@@ -121,7 +121,7 @@ export default function ProjectDocsPage({
   const [docCategory, setDocCategory] = useState("PRD");
   const [docDescription, setDocDescription] = useState("");
   const [docContent, setDocContent] = useState("");
-  const [docAuthor, setDocAuthor] = useState("Alex Rivers");
+  const [docAuthor, setDocAuthor] = useState("Rinzan");
   const [submitting, setSubmitting] = useState(false);
   const [dragActive, setDragActive] = useState(false);
 
@@ -157,7 +157,7 @@ export default function ProjectDocsPage({
       formData.append("title", docTitle.trim() || (uploadFile ? uploadFile.name : "Untitled"));
       formData.append("category", docCategory);
       if (docDescription) formData.append("description", docDescription.trim());
-      formData.append("author", docAuthor.trim() || "Alex Rivers");
+      formData.append("author", docAuthor.trim() || "Rinzan");
 
       const res = await fetch(`/api/projects/${projectKey}/documents`, {
         method: "POST",
@@ -190,7 +190,7 @@ export default function ProjectDocsPage({
           category: docCategory,
           description: docDescription.trim() || null,
           content: docContent.trim() || null,
-          author: docAuthor.trim() || "Alex Rivers",
+          author: docAuthor.trim() || "Rinzan",
         }),
       });
 
@@ -227,7 +227,7 @@ export default function ProjectDocsPage({
     setDocCategory("PRD");
     setDocDescription("");
     setDocContent("");
-    setDocAuthor("Alex Rivers");
+    setDocAuthor("Rinzan");
   };
 
   const handleDrag = (e: React.DragEvent) => {

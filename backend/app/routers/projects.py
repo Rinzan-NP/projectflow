@@ -117,8 +117,8 @@ def create_project(data: ProjectCreate, db: Session = Depends(get_db)):
         priority=(data.priority or "MEDIUM").upper(),
         startDate=data.startDate,
         targetDate=data.targetDate,
-        owner=data.owner or "Alex Rivers",
-        members=data.members or "Alex Rivers,Sam Taylor,Jordan Lee",
+        owner=data.owner or "Rinzan",
+        members=data.members or "Sam Taylor,Jordan Lee",
         itemCounter=0,
     )
     db.add(project)

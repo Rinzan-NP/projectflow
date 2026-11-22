@@ -16,6 +16,8 @@ interface KanbanColumnProps {
   items: ItemWithRelations[];
   onItemClick: (item: ItemWithRelations) => void;
   onQuickAdd: (stageId: string, title: string, type: ItemType, priority?: string) => Promise<void>;
+  projectName?: string;
+  projectColor?: string;
 }
 
 export function KanbanColumn({
@@ -23,6 +25,8 @@ export function KanbanColumn({
   items,
   onItemClick,
   onQuickAdd,
+  projectName,
+  projectColor,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: stage.id,
@@ -86,7 +90,13 @@ export function KanbanColumn({
           strategy={verticalListSortingStrategy}
         >
           {items.map((item) => (
-            <ItemCard key={item.id} item={item} onClick={onItemClick} />
+            <ItemCard
+              key={item.id}
+              item={item}
+              onClick={onItemClick}
+              projectName={projectName}
+              projectColor={projectColor}
+            />
           ))}
         </SortableContext>
       </div>

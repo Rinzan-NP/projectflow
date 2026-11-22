@@ -197,7 +197,7 @@ export function EditProjectModal({
             <Input
               value={members}
               onChange={(e) => setMembers(e.target.value)}
-              placeholder="Alex Rivers, Sam Taylor"
+              placeholder="Sam Taylor, Jordan Lee"
               className="h-9"
             />
           </div>

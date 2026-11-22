@@ -22,7 +22,7 @@ export default function MyWorkPage() {
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any | null>(null);
 
-  const currentUser = "Alex Rivers";
+  const currentUser = "Rinzan";
 
   const fetchMyWork = async () => {
     try {
