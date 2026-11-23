@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
   X,
   Trash2,
@@ -25,6 +25,7 @@ import {
   FileText,
   Download,
   Upload,
+  FolderKanban,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,6 +35,7 @@ import { ItemTypeIcon } from "@/components/shared/ItemTypeIcon";
 import { PriorityIcon } from "@/components/shared/PriorityIcon";
 import { Avatar } from "@/components/shared/Avatar";
 import { formatDate, formatDateTime } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
 
 interface ItemDetailModalProps {
   item: ItemWithRelations | null;
@@ -43,6 +45,7 @@ interface ItemDetailModalProps {
   onUpdate: (updated: ItemWithRelations) => void;
   onDelete: (id: string) => void;
   stages: any[];
+  allProjects?: any[];
   allMembers?: string[];
 }
 
@@ -54,9 +57,15 @@ export function ItemDetailModal({
   onUpdate,
   onDelete,
   stages,
+  allProjects,
   allMembers = ["Rinzan", "Sam Taylor", "Jordan Lee", "Morgan Chen"],
 }: ItemDetailModalProps) {
   if (!isOpen || !item) return null;
+
+  const { user } = useAuth();
+  const [projectList, setProjectList] = useState<any[]>(allProjects || []);
+  const [currentStages, setCurrentStages] = useState<any[]>(stages);
+  const [isChangingProject, setIsChangingProject] = useState(false);
 
   const [title, setTitle] = useState(item.title);
   const [description, setDescription] = useState(item.description || "");
@@ -106,6 +115,79 @@ export function ItemDetailModal({
   const [activeTab, setActiveTab] = useState<
     "details" | "checklist" | "subtasks" | "attachments" | "activity"
   >("details");
+
+  useEffect(() => {
+    if (allProjects && allProjects.length > 0) {
+      setProjectList(allProjects);
+    } else {
+      fetch("/api/projects")
+        .then((r) => r.json())
+        .then((data) => {
+          if (Array.isArray(data)) setProjectList(data);
+        })
+        .catch(console.error);
+    }
+  }, [allProjects]);
+
+  useEffect(() => {
+    if (stages && stages.length > 0) {
+      setCurrentStages(stages);
+    }
+  }, [stages]);
+
+  useEffect(() => {
+    setTitle(item.title);
+    setDescription(item.description || "");
+    setType(item.type);
+    setPriority(item.priority);
+    setStageId(item.stageId);
+    setAssignee(item.assignee || "");
+    setDueDate(item.dueDate ? new Date(item.dueDate).toISOString().split("T")[0] : "");
+    setEstimateHours(item.estimateHours != null ? String(item.estimateHours) : "");
+    setSeverity(item.severity || "MAJOR");
+    setSource(item.source || "INTERNAL");
+    setStepsToReproduce(item.stepsToReproduce || "");
+    setExpectedResult(item.expectedResult || "");
+    setActualResult(item.actualResult || "");
+    setEnvironment(item.environment || "");
+    setUserStory(item.userStory || "");
+    setRequestedBy(item.requestedBy || "");
+    if (item.attachments) setAttachments(item.attachments);
+  }, [item.id, item.projectId, item.humanId, item.stageId]);
+
+  const availableProjects = useMemo(() => {
+    if (!user || user.company === "ALL") return projectList;
+    return projectList.filter((p) => p.company === user.company);
+  }, [projectList, user]);
+
+  const handleProjectChange = async (targetProjectId: string) => {
+    if (!targetProjectId || targetProjectId === item.projectId) return;
+    setIsChangingProject(true);
+    try {
+      const res = await fetch(`/api/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: targetProjectId }),
+      });
+      if (res.ok) {
+        const updated = await res.json();
+        const targetProj = projectList.find((p) => p.id === targetProjectId);
+        if (targetProj && targetProj.stages && targetProj.stages.length > 0) {
+          setCurrentStages(targetProj.stages);
+        }
+        setStageId(updated.stageId);
+        onUpdate(updated);
+      } else {
+        const err = await res.json().catch(() => ({}));
+        alert(err.detail || "Failed to change project");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error changing project");
+    } finally {
+      setIsChangingProject(false);
+    }
+  };
 
   useEffect(() => {
     if (item.attachments) setAttachments(item.attachments);
@@ -316,10 +398,16 @@ export function ItemDetailModal({
       <div className="relative w-full max-w-4xl h-[90vh] max-h-[850px] rounded-xl border bg-card shadow-xl flex flex-col overflow-hidden text-card-foreground animate-in fade-in-0 zoom-in-95">
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-6 py-3 border-b bg-muted/20">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5 flex-wrap">
             <span className="font-mono text-sm font-bold text-primary">
               {item.humanId}
             </span>
+            <span className="text-muted-foreground">•</span>
+            {/* Project Indicator */}
+            <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted text-[11px] font-semibold border text-muted-foreground" title="Assigned Project">
+              <FolderKanban className="w-3.5 h-3.5 text-primary" />
+              <span>{item.project?.name || projectKey}</span>
+            </div>
             <span className="text-muted-foreground">•</span>
             {/* Quick Type Selector */}
             <select
@@ -931,6 +1019,35 @@ export function ItemDetailModal({
 
           {/* Right Sidebar Properties */}
           <div className="w-full md:w-72 border-t md:border-t-0 md:border-l bg-muted/15 p-5 space-y-4 overflow-y-auto text-xs">
+            {/* Project Selector */}
+            <div>
+              <label className="text-[11px] font-semibold text-muted-foreground mb-1 flex items-center justify-between">
+                <span>Project</span>
+                {isChangingProject && (
+                  <span className="text-[10px] text-primary animate-pulse">Moving...</span>
+                )}
+              </label>
+              <div className="relative">
+                <select
+                  disabled={isChangingProject}
+                  value={item.projectId || ""}
+                  onChange={(e) => handleProjectChange(e.target.value)}
+                  className="w-full h-8 text-xs bg-background border rounded px-2 font-medium cursor-pointer focus:ring-1 focus:ring-primary truncate"
+                >
+                  {!availableProjects.some((p) => p.id === item.projectId) && item.project && (
+                    <option value={item.projectId}>
+                      {item.project.name} ({item.project.key})
+                    </option>
+                  )}
+                  {availableProjects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.key})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             {/* Stage */}
             <div>
               <label className="text-[11px] font-semibold text-muted-foreground mb-1 block">
@@ -945,7 +1062,7 @@ export function ItemDetailModal({
                 }}
                 className="w-full h-8 text-xs bg-background border rounded px-2 font-medium"
               >
-                {stages.map((s) => (
+                {currentStages.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name} {s.isDoneStage ? "(Done)" : ""}
                   </option>

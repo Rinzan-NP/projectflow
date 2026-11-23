@@ -734,6 +734,7 @@ export function KanbanBoard({
           onUpdate={handleUpdateItem}
           onDelete={handleDeleteItem}
           stages={activeStages}
+          allProjects={allProjects}
         />
       )}
 

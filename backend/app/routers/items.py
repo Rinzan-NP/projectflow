@@ -4,7 +4,7 @@ from typing import Optional, List
 from datetime import datetime
 from ..database import get_db
 from ..models import Project, Stage, Item, Label, ItemLabel, ActivityLog, ChecklistItem, Comment, Attachment
-from ..schemas import ItemCreate, ItemUpdate, ItemReorder, BulkAction
+from ..schemas import ItemCreate, ItemUpdate, ItemReorder, BulkAction, ItemMoveProject
 
 router = APIRouter(tags=["items"])
 
@@ -249,6 +249,79 @@ def get_item(id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found")
     return serialize_item(item)
 
+def move_item_to_project(item: Item, target_proj_id_or_key: str, db: Session, author: Optional[str] = None):
+    target_proj = db.query(Project).filter(
+        (Project.id == target_proj_id_or_key) | (Project.key == target_proj_id_or_key.upper())
+    ).first()
+    if not target_proj:
+        raise HTTPException(status_code=404, detail="Target project not found")
+
+    if target_proj.id == item.projectId:
+        return item
+
+    old_proj_name = item.project.name if item.project else "Unknown"
+    old_human_id = item.humanId
+
+    # 1. Update project and humanId
+    target_proj.itemCounter += 1
+    item.projectId = target_proj.id
+    item.itemNumber = target_proj.itemCounter
+    item.humanId = f"{target_proj.key}-{item.itemNumber}"
+
+    # 2. Stage mapping: Find equivalent stage in target project
+    target_stages = db.query(Stage).filter(Stage.projectId == target_proj.id).order_by(Stage.order.asc()).all()
+    target_stage = None
+    if item.stage and target_stages:
+        for s in target_stages:
+            if s.name.strip().lower() == item.stage.name.strip().lower():
+                target_stage = s
+                break
+        if not target_stage and item.stage.isDoneStage:
+            for s in target_stages:
+                if s.isDoneStage:
+                    target_stage = s
+                    break
+    if not target_stage and target_stages:
+        target_stage = target_stages[0]
+
+    if target_stage:
+        item.stageId = target_stage.id
+        if target_stage.isDoneStage and not item.completedAt:
+            item.completedAt = datetime.utcnow()
+        elif not target_stage.isDoneStage:
+            item.completedAt = None
+
+    # 3. Update all subtasks to target project
+    for sub in item.subtasks:
+        target_proj.itemCounter += 1
+        sub.projectId = target_proj.id
+        sub.itemNumber = target_proj.itemCounter
+        sub.humanId = f"{target_proj.key}-{sub.itemNumber}"
+
+    # 4. Re-link labels to the new project so label names are preserved
+    if item.labels:
+        old_label_names = [l.name for l in item.labels]
+        db.query(ItemLabel).filter(ItemLabel.itemId == item.id).delete()
+        db.flush()
+        for lbl_name in old_label_names:
+            lbl = db.query(Label).filter(Label.projectId == target_proj.id, Label.name == lbl_name).first()
+            if not lbl:
+                lbl = Label(projectId=target_proj.id, name=lbl_name, color="#64748b")
+                db.add(lbl)
+                db.flush()
+            db.add(ItemLabel(itemId=item.id, labelId=lbl.id))
+
+    # 5. Log activity
+    log = ActivityLog(
+        itemId=item.id,
+        author=author or item.reporter or "User",
+        action="moved project",
+        fromValue=f"{old_proj_name} ({old_human_id})",
+        toValue=f"{target_proj.name} ({item.humanId})",
+    )
+    db.add(log)
+    return item
+
 @router.patch("/api/items/{id}")
 def update_item(id: str, data: ItemUpdate, db: Session = Depends(get_db)):
     item = db.query(Item).filter((Item.id == id) | (Item.humanId == id.upper())).first()
@@ -256,6 +329,12 @@ def update_item(id: str, data: ItemUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Item not found")
 
     update_dict = data.dict(exclude_unset=True)
+
+    # Handle project move if projectId is provided
+    if "projectId" in update_dict:
+        target_proj_val = update_dict.pop("projectId")
+        if target_proj_val and target_proj_val != item.projectId:
+            move_item_to_project(item, target_proj_val, db, author=item.reporter)
 
     # If stageId changed, check done status & log activity
     if "stageId" in update_dict and update_dict["stageId"] != item.stageId:
@@ -351,6 +430,16 @@ def delete_item(id: str, db: Session = Depends(get_db)):
     db.delete(item)
     db.commit()
     return {"message": "Item deleted"}
+
+@router.post("/api/items/{id}/move")
+def move_item_endpoint(id: str, payload: ItemMoveProject, db: Session = Depends(get_db)):
+    item = db.query(Item).filter((Item.id == id) | (Item.humanId == id.upper())).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    move_item_to_project(item, payload.projectId, db, author=payload.author)
+    db.commit()
+    db.refresh(item)
+    return serialize_item(item)
 
 @router.post("/api/items/reorder")
 @router.put("/api/items/reorder")

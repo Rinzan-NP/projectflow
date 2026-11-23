@@ -91,6 +91,7 @@ class ItemCreate(ItemBase):
 class ItemUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
+    projectId: Optional[str] = None
     stageId: Optional[str] = None
     type: Optional[str] = None
     priority: Optional[str] = None
@@ -116,6 +117,10 @@ class ItemUpdate(BaseModel):
     deleteChecklistId: Optional[str] = None
     newCommentBody: Optional[str] = None
     commentAuthor: Optional[str] = None
+
+class ItemMoveProject(BaseModel):
+    projectId: str
+    author: Optional[str] = None
 
 class ItemReorder(BaseModel):
     itemId: Optional[str] = None
