@@ -143,12 +143,18 @@ export function ItemDetailModal({
   const handleAddChecklist = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newChecklistText.trim()) return;
-    await handleSaveField({ addChecklistText: newChecklistText.trim() });
+    const text = newChecklistText.trim();
     setNewChecklistText("");
+    await handleSaveField({ addChecklistText: text });
   };
 
   const handleToggleChecklist = async (checkId: string) => {
     await handleSaveField({ toggleChecklistId: checkId });
+  };
+
+  const handleDeleteChecklist = async (checkId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    await handleSaveField({ deleteChecklistId: checkId });
   };
 
   const handleAddComment = async (e: React.FormEvent) => {
@@ -165,22 +171,41 @@ export function ItemDetailModal({
     e.preventDefault();
     if (!newSubtaskTitle.trim()) return;
 
+    const title = newSubtaskTitle.trim();
+    setNewSubtaskTitle("");
+
     try {
-      const res = await fetch(`/api/projects/${projectKey}/items`, {
+      // First try dedicated subtask endpoint
+      let res = await fetch(`/api/items/${item.id}/subtasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: newSubtaskTitle.trim(),
-          type: "TASK",
+          title,
           priority: "MEDIUM",
-          stageId: stages[0]?.id || item.stageId,
-          parentId: item.id,
         }),
       });
+
+      // Fallback to project items endpoint if needed
+      if (!res.ok) {
+        const targetProjKey =
+          (item.project?.key || item.humanId.split("-")[0] || projectKey || "").toUpperCase();
+        const validProjKey = targetProjKey !== "ALL" ? targetProjKey : item.humanId.split("-")[0];
+        res = await fetch(`/api/projects/${validProjKey}/items`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title,
+            type: "TASK",
+            priority: "MEDIUM",
+            stageId: item.stageId,
+            parentId: item.id,
+          }),
+        });
+      }
+
       if (res.ok) {
-        setNewSubtaskTitle("");
-        const refreshed = await fetch(`/api/items/${item.id}`).then((r) => r.json());
-        onUpdate(refreshed);
+        const updated = await res.json();
+        onUpdate(updated);
       }
     } catch (err) {
       console.error(err);
@@ -600,10 +625,10 @@ export function ItemDetailModal({
                       <div
                         key={check.id}
                         onClick={() => handleToggleChecklist(check.id)}
-                        className="flex items-center gap-2 p-2 rounded border bg-background/50 hover:bg-background cursor-pointer text-xs transition-colors"
+                        className="group flex items-center gap-2 p-2 rounded border bg-background/50 hover:bg-background cursor-pointer text-xs transition-colors"
                       >
                         <div
-                          className={`h-4 w-4 rounded border flex items-center justify-center ${
+                          className={`h-4 w-4 rounded border flex items-center justify-center shrink-0 ${
                             check.isDone
                               ? "bg-primary border-primary text-primary-foreground"
                               : "border-input"
@@ -618,6 +643,14 @@ export function ItemDetailModal({
                         >
                           {check.text}
                         </span>
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteChecklist(check.id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-rose-500 rounded transition-opacity"
+                          title="Delete checklist item"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     ))
                   ) : (

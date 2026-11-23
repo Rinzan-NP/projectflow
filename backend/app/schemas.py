@@ -111,6 +111,11 @@ class ItemUpdate(BaseModel):
     acceptanceCriteria: Optional[str] = None
     requestedBy: Optional[str] = None
     labels: Optional[List[str]] = None
+    addChecklistText: Optional[str] = None
+    toggleChecklistId: Optional[str] = None
+    deleteChecklistId: Optional[str] = None
+    newCommentBody: Optional[str] = None
+    commentAuthor: Optional[str] = None
 
 class ItemReorder(BaseModel):
     itemId: Optional[str] = None

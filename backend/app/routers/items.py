@@ -162,10 +162,19 @@ def get_project_items(
 @router.post("/api/projects/{id}/items", status_code=status.HTTP_201_CREATED)
 def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)):
     project = db.query(Project).filter((Project.id == id) | (Project.key == id.upper())).first()
+    if not project and data.parentId:
+        parent = db.query(Item).filter(Item.id == data.parentId).first()
+        if parent:
+            project = parent.project
+
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
     stage = db.query(Stage).filter(Stage.id == data.stageId).first()
+    if not stage:
+        # Fallback to the project's first stage if unified or invalid stage ID was provided
+        stage = db.query(Stage).filter(Stage.projectId == project.id).order_by(Stage.order.asc()).first()
+
     if not stage:
         raise HTTPException(status_code=404, detail="Stage not found")
 
@@ -279,6 +288,53 @@ def update_item(id: str, data: ItemUpdate, db: Session = Depends(get_db)):
             db.add(ItemLabel(itemId=item.id, labelId=label.id))
         del update_dict["labels"]
 
+    # Handle checklist operations
+    if "addChecklistText" in update_dict and update_dict["addChecklistText"]:
+        chk_text = str(update_dict.pop("addChecklistText")).strip()
+        if chk_text:
+            existing_orders = [c.order for c in item.checklists]
+            max_order = max(existing_orders, default=0)
+            new_chk = ChecklistItem(
+                itemId=item.id,
+                text=chk_text,
+                isDone=False,
+                order=int(max_order + 1),
+            )
+            db.add(new_chk)
+    elif "addChecklistText" in update_dict:
+        update_dict.pop("addChecklistText")
+
+    if "toggleChecklistId" in update_dict and update_dict["toggleChecklistId"]:
+        chk_id = update_dict.pop("toggleChecklistId")
+        chk = db.query(ChecklistItem).filter(ChecklistItem.id == chk_id, ChecklistItem.itemId == item.id).first()
+        if chk:
+            chk.isDone = not chk.isDone
+    elif "toggleChecklistId" in update_dict:
+        update_dict.pop("toggleChecklistId")
+
+    if "deleteChecklistId" in update_dict and update_dict["deleteChecklistId"]:
+        chk_id = update_dict.pop("deleteChecklistId")
+        db.query(ChecklistItem).filter(ChecklistItem.id == chk_id, ChecklistItem.itemId == item.id).delete()
+    elif "deleteChecklistId" in update_dict:
+        update_dict.pop("deleteChecklistId")
+
+    # Handle comments
+    if "newCommentBody" in update_dict and update_dict["newCommentBody"]:
+        com_body = str(update_dict.pop("newCommentBody")).strip()
+        com_author = update_dict.pop("commentAuthor", None) or item.reporter or "User"
+        if com_body:
+            new_com = Comment(
+                itemId=item.id,
+                author=com_author,
+                body=com_body,
+            )
+            db.add(new_com)
+    elif "newCommentBody" in update_dict:
+        update_dict.pop("newCommentBody")
+
+    if "commentAuthor" in update_dict:
+        update_dict.pop("commentAuthor")
+
     for field, val in update_dict.items():
         setattr(item, field, val)
 
@@ -366,3 +422,91 @@ def bulk_items(payload: BulkAction, db: Session = Depends(get_db)):
 
     db.commit()
     return {"updated": len(items)}
+
+@router.post("/api/items/{id}/checklists")
+def add_item_checklist(id: str, payload: dict, db: Session = Depends(get_db)):
+    item = db.query(Item).filter((Item.id == id) | (Item.humanId == id.upper())).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+
+    text = (payload.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Checklist text cannot be empty")
+
+    existing_orders = [c.order for c in item.checklists]
+    max_order = max(existing_orders, default=0)
+    chk = ChecklistItem(
+        itemId=item.id,
+        text=text,
+        isDone=False,
+        order=int(max_order + 1),
+    )
+    db.add(chk)
+    db.commit()
+    db.refresh(item)
+    return serialize_item(item)
+
+@router.patch("/api/checklists/{chk_id}")
+def update_checklist_item(chk_id: str, payload: dict, db: Session = Depends(get_db)):
+    chk = db.query(ChecklistItem).filter(ChecklistItem.id == chk_id).first()
+    if not chk:
+        raise HTTPException(status_code=404, detail="Checklist item not found")
+
+    if "isDone" in payload:
+        chk.isDone = bool(payload["isDone"])
+    if "text" in payload and str(payload["text"]).strip():
+        chk.text = str(payload["text"]).strip()
+
+    db.commit()
+    item = db.query(Item).filter(Item.id == chk.itemId).first()
+    return serialize_item(item) if item else {"id": chk.id, "isDone": chk.isDone, "text": chk.text}
+
+@router.delete("/api/checklists/{chk_id}")
+def delete_checklist_item(chk_id: str, db: Session = Depends(get_db)):
+    chk = db.query(ChecklistItem).filter(ChecklistItem.id == chk_id).first()
+    if not chk:
+        raise HTTPException(status_code=404, detail="Checklist item not found")
+
+    item_id = chk.itemId
+    db.delete(chk)
+    db.commit()
+    item = db.query(Item).filter(Item.id == item_id).first()
+    return serialize_item(item) if item else {"message": "Deleted"}
+
+@router.post("/api/items/{id}/subtasks")
+def add_item_subtask(id: str, payload: dict, db: Session = Depends(get_db)):
+    parent = db.query(Item).filter((Item.id == id) | (Item.humanId == id.upper())).first()
+    if not parent:
+        raise HTTPException(status_code=404, detail="Parent item not found")
+
+    title = (payload.get("title") or "").strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Subtask title cannot be empty")
+
+    project = parent.project
+    project.itemCounter += 1
+    item_number = project.itemCounter
+    human_id = f"{project.key}-{item_number}"
+
+    stage_id = payload.get("stageId")
+    stage = db.query(Stage).filter(Stage.id == stage_id).first() if stage_id else None
+    if not stage:
+        stage = db.query(Stage).filter(Stage.projectId == project.id).order_by(Stage.order.asc()).first()
+
+    subtask = Item(
+        humanId=human_id,
+        itemNumber=item_number,
+        projectId=project.id,
+        stageId=stage.id if stage else parent.stageId,
+        type="TASK",
+        title=title,
+        priority=payload.get("priority") or "MEDIUM",
+        assignee=payload.get("assignee"),
+        reporter=payload.get("reporter") or parent.reporter or "Rinzan",
+        order=1.0,
+        parentId=parent.id,
+    )
+    db.add(subtask)
+    db.commit()
+    db.refresh(parent)
+    return serialize_item(parent)
