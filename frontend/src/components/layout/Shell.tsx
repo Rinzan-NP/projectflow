@@ -47,7 +47,13 @@ function AppShellContent({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      if (isInput) return;
+      // Do not intercept if typing in an input or if modifier keys are active (Cmd+C, Ctrl+C, Alt, etc.)
+      if (isInput || e.metaKey || e.ctrlKey || e.altKey) return;
+
+      // Do not intercept if user has text selected on the page
+      if (typeof window !== "undefined" && window.getSelection()?.toString().length) {
+        return;
+      }
 
       if (e.key === "c" || e.key === "C") {
         e.preventDefault();
