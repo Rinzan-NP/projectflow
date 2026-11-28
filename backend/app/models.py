@@ -63,7 +63,7 @@ class Stage(Base):
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     project = relationship("Project", back_populates="stages")
-    items = relationship("Item", back_populates="stage")
+    items = relationship("Item", back_populates="stage", primaryjoin="Stage.id == Item.stageId", foreign_keys="[Item.stageId]")
 
 
 class ItemLabel(Base):
@@ -92,8 +92,9 @@ class Item(Base):
     humanId = Column(String, unique=True, nullable=False, index=True)
     itemNumber = Column(Integer, nullable=False)
 
-    projectId = Column(String, ForeignKey("Project.id", ondelete="CASCADE"), nullable=False, index=True)
-    stageId = Column(String, ForeignKey("Stage.id"), nullable=False, index=True)
+    projectId = Column(String, ForeignKey("Project.id", ondelete="CASCADE"), nullable=True, index=True)
+    company = Column(String, nullable=True, index=True)
+    stageId = Column(String, nullable=True, index=True)
 
     type = Column(String, default="TASK", nullable=False, index=True)
     title = Column(String, nullable=False)
@@ -127,7 +128,7 @@ class Item(Base):
     updatedAt = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     project = relationship("Project", back_populates="items")
-    stage = relationship("Stage", back_populates="items")
+    stage = relationship("Stage", back_populates="items", primaryjoin="Item.stageId == Stage.id", foreign_keys=[stageId])
     labels = relationship("Label", secondary="ItemLabel", back_populates="items")
     parent = relationship("Item", remote_side=[id], backref="subtasks")
     milestone = relationship("Milestone", back_populates="items")
@@ -210,7 +211,8 @@ class ProjectDocument(Base):
     __tablename__ = "ProjectDocument"
 
     id = Column(String, primary_key=True, default=generate_id)
-    projectId = Column(String, ForeignKey("Project.id", ondelete="CASCADE"), nullable=False, index=True)
+    projectId = Column(String, ForeignKey("Project.id", ondelete="CASCADE"), nullable=True, index=True)
+    company = Column(String, nullable=True, index=True)
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     category = Column(String, default="PRD", nullable=False, index=True)

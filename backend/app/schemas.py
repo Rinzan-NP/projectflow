@@ -83,15 +83,18 @@ class ItemBase(BaseModel):
     userStory: Optional[str] = None
     acceptanceCriteria: Optional[str] = None
     requestedBy: Optional[str] = None
+    projectId: Optional[str] = None
+    company: Optional[str] = None
 
 class ItemCreate(ItemBase):
-    stageId: str
+    stageId: Optional[str] = "stage_todo"
     labels: Optional[List[str]] = []
 
 class ItemUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     projectId: Optional[str] = None
+    company: Optional[str] = None
     stageId: Optional[str] = None
     type: Optional[str] = None
     priority: Optional[str] = None
@@ -141,6 +144,8 @@ class DocumentBase(BaseModel):
     description: Optional[str] = None
     content: Optional[str] = None
     author: Optional[str] = "Rinzan"
+    projectId: Optional[str] = None
+    company: Optional[str] = None
 
 class DocumentCreate(DocumentBase):
     fileUrl: Optional[str] = None
@@ -153,3 +158,5 @@ class DocumentUpdate(BaseModel):
     category: Optional[str] = None
     description: Optional[str] = None
     content: Optional[str] = None
+    projectId: Optional[str] = None
+    company: Optional[str] = None

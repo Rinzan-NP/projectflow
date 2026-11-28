@@ -31,6 +31,14 @@ interface GlobalCreateModalProps {
   hideProjectSelect?: boolean;
 }
 
+const DEFAULT_GENERAL_STAGES = [
+  { id: "stage_todo", name: "To Do" },
+  { id: "stage_in_progress", name: "In Progress" },
+  { id: "stage_in_review", name: "In Review" },
+  { id: "stage_done", name: "Done" },
+  { id: "stage_backlog", name: "Backlog" },
+];
+
 export function GlobalCreateModal({
   isOpen,
   onClose,
@@ -42,9 +50,9 @@ export function GlobalCreateModal({
 }: GlobalCreateModalProps) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProjectKey, setSelectedProjectKey] = useState("");
-  const [stages, setStages] = useState<any[]>([]);
-  const [selectedStageId, setSelectedStageId] = useState("");
+  const [selectedProjectKey, setSelectedProjectKey] = useState("NONE");
+  const [stages, setStages] = useState<any[]>(DEFAULT_GENERAL_STAGES);
+  const [selectedStageId, setSelectedStageId] = useState("stage_todo");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
@@ -62,31 +70,16 @@ export function GlobalCreateModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      setType(defaultType);
-      fetch("/api/projects")
-        .then((r) => r.json())
-        .then((data) => {
-          const allowed =
-            user?.company && user.company !== "ALL"
-              ? data.filter((p: any) => p.company === user.company)
-              : data;
-          setProjects(allowed);
-          if (allowed.length > 0) {
-            const initialKey =
-              defaultProjectKey && allowed.some((p: any) => p.key === defaultProjectKey)
-                ? defaultProjectKey
-                : allowed[0].key;
-            setSelectedProjectKey(initialKey);
-            fetchStages(initialKey);
-          }
-        })
-        .catch((err) => console.error("Failed to load projects:", err));
-    }
-  }, [isOpen, defaultProjectKey, defaultType, user?.company]);
-
   const fetchStages = async (key: string) => {
+    if (!key || key === "NONE") {
+      setStages(DEFAULT_GENERAL_STAGES);
+      if (defaultStageId && DEFAULT_GENERAL_STAGES.some((s) => s.id === defaultStageId)) {
+        setSelectedStageId(defaultStageId);
+      } else {
+        setSelectedStageId("stage_todo");
+      }
+      return;
+    }
     try {
       const res = await fetch(`/api/projects/${key}/stages`).then((r) => r.json());
       setStages(res);
@@ -101,6 +94,34 @@ export function GlobalCreateModal({
       console.error("Failed to load stages:", err);
     }
   };
+
+  useEffect(() => {
+    if (isOpen) {
+      setType(defaultType);
+      fetch("/api/projects")
+        .then((r) => r.json())
+        .then((data) => {
+          const allowed =
+            user?.company && user.company !== "ALL"
+              ? data.filter((p: any) => p.company === user.company)
+              : data;
+          setProjects(allowed);
+          const initialKey =
+            defaultProjectKey !== undefined
+              ? defaultProjectKey
+              : allowed.length > 0
+              ? allowed[0].key
+              : "NONE";
+          setSelectedProjectKey(initialKey);
+          fetchStages(initialKey);
+        })
+        .catch((err) => {
+          console.error("Failed to load projects:", err);
+          setSelectedProjectKey("NONE");
+          fetchStages("NONE");
+        });
+    }
+  }, [isOpen, defaultProjectKey, defaultType, user?.company]);
 
   const handleProjectChange = (key: string) => {
     setSelectedProjectKey(key);
@@ -128,7 +149,8 @@ export function GlobalCreateModal({
 
     try {
       // 1. Create Work Item
-      const res = await fetch(`/api/projects/${selectedProjectKey}/items`, {
+      const endpoint = selectedProjectKey === "NONE" ? "/api/items" : `/api/projects/${selectedProjectKey}/items`;
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -139,6 +161,8 @@ export function GlobalCreateModal({
           stageId: selectedStageId,
           assignee: assignee || null,
           reporter: user?.username || undefined,
+          company: user?.company && user.company !== "ALL" ? user.company : "General",
+          projectId: selectedProjectKey === "NONE" ? null : undefined,
           severity: type === "BUG" ? severity : null,
           environment: type === "BUG" && environment.trim() ? environment.trim() : null,
           stepsToReproduce:
@@ -264,6 +288,9 @@ export function GlobalCreateModal({
                   onChange={(e) => handleProjectChange(e.target.value)}
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-xs focus:ring-1 focus:ring-primary font-medium"
                 >
+                  <option value="NONE">
+                    ✨ No Project (General / {user?.company && user.company !== "ALL" ? `${user.company} Company` : "Company-wide"})
+                  </option>
                   {projects.map((p) => (
                     <option key={p.id} value={p.key}>
                       {p.name} [{p.company || "Company"}] ({p.key})

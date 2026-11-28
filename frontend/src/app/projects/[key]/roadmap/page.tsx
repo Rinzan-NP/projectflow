@@ -71,9 +71,11 @@ export default function RoadmapPage({
     const map = new Map<string, ItemWithRelations[]>();
     stages.forEach((s) => map.set(s.id, []));
     features.forEach((f) => {
-      const arr = map.get(f.stageId) || [];
-      arr.push(f);
-      map.set(f.stageId, arr);
+      if (f.stageId) {
+        const arr = map.get(f.stageId) || [];
+        arr.push(f);
+        map.set(f.stageId, arr);
+      }
     });
     return map;
   }, [stages, features]);

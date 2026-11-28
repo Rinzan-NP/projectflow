@@ -19,6 +19,7 @@ import {
   PanelLeftClose,
   PanelLeft,
   LogOut,
+  FileText,
 } from "lucide-react";
 import { ThemeToggle } from "./ThemeToggle";
 import { Avatar } from "@/components/shared/Avatar";
@@ -233,6 +234,32 @@ export function Sidebar({ onOpenCommandPalette, onOpenQuickCreate }: SidebarProp
           >
             <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
             {!collapsed && <span>My Work</span>}
+          </Link>
+
+          <Link
+            href="/documents"
+            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+              pathname === "/documents"
+                ? "bg-accent text-accent-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+            title="Company Documents & Knowledge Base"
+          >
+            <FileText className="h-4 w-4 shrink-0 text-indigo-500" />
+            {!collapsed && <span>Documents</span>}
+          </Link>
+
+          <Link
+            href="/documents"
+            className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg font-medium transition-colors ${
+              pathname === "/documents"
+                ? "bg-accent text-accent-foreground font-semibold"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
+            }`}
+            title="Company Documents"
+          >
+            <FileText className="h-4 w-4 shrink-0 text-indigo-500" />
+            {!collapsed && <span>Documents</span>}
           </Link>
         </div>
 

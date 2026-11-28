@@ -95,11 +95,12 @@ model Item {
   humanId          String        @unique // e.g. "CRM-42"
   itemNumber       Int
 
-  projectId        String
-  project          Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId        String?
+  project          Project?      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company          String?
 
-  stageId          String
-  stage            Stage         @relation(fields: [stageId], references: [id])
+  stageId          String?
+  stage            Stage?        @relation(fields: [stageId], references: [id])
 
   type             ItemType      @default(TASK)
   title            String
@@ -225,8 +226,9 @@ model Milestone {
 
 model ProjectDocument {
   id          String    @id @default(cuid())
-  projectId   String
-  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  company     String?
   
   title       String
   description String?

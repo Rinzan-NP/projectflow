@@ -219,6 +219,7 @@ export function KanbanBoard({
       if (user?.company && user.company !== "ALL") {
         const itemProjKey = (item.project?.key || item.humanId.split("-")[0] || "").toUpperCase();
         const belongsToUserCompany =
+          item.company === user.company ||
           item.project?.company === user.company ||
           visibleProjects.some((p) => p.key.toUpperCase() === itemProjKey);
         if (!belongsToUserCompany) return false;
@@ -226,9 +227,13 @@ export function KanbanBoard({
 
       // Project filter
       if (selectedProject !== "ALL") {
-        const itemProjKey = item.project?.key || item.humanId.split("-")[0];
-        if (itemProjKey.toUpperCase() !== selectedProject.toUpperCase()) {
-          return false;
+        if (selectedProject === "NO_PROJECT") {
+          if (item.projectId) return false;
+        } else {
+          const itemProjKey = item.project?.key || item.humanId.split("-")[0];
+          if (itemProjKey.toUpperCase() !== selectedProject.toUpperCase()) {
+            return false;
+          }
         }
       }
 
@@ -266,7 +271,7 @@ export function KanbanBoard({
       map[stage.id] = [];
     }
 
-    const isAllMode = selectedProject === "ALL";
+    const isAllMode = selectedProject === "ALL" || selectedProject === "NO_PROJECT";
 
     for (const item of filteredItems) {
       if (isAllMode) {
@@ -277,7 +282,7 @@ export function KanbanBoard({
           map["stage_todo"].push(item);
         }
       } else {
-        if (map[item.stageId]) {
+        if (item.stageId && map[item.stageId]) {
           map[item.stageId].push(item);
         } else if (activeStages[0]) {
           map[activeStages[0].id].push(item);
@@ -385,7 +390,7 @@ export function KanbanBoard({
     const targetItem = items.find((i) => i.id === activeId);
     if (!targetItem) return;
 
-    const isAllMode = selectedProject === "ALL";
+    const isAllMode = selectedProject === "ALL" || selectedProject === "NO_PROJECT";
 
     if (isAllMode) {
       // Determine which unified column was dropped into
@@ -393,6 +398,27 @@ export function KanbanBoard({
       const overItem = items.find((i) => i.id === overId);
       if (overItem) {
         targetUnifiedStageId = getUnifiedStageIdForItem(overItem, activeStages);
+      }
+
+      // Handle items without a project
+      if (!targetItem.projectId) {
+        setItems((prev) =>
+          prev.map((i) =>
+            i.id === targetItem.id
+              ? { ...i, stageId: targetUnifiedStageId }
+              : i
+          )
+        );
+        try {
+          await fetch(`/api/items/${targetItem.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ stageId: targetUnifiedStageId }),
+          });
+        } catch (err) {
+          console.error("Failed to update item stage:", err);
+        }
+        return;
       }
 
       // Find item's project and the project's corresponding stage
@@ -555,6 +581,9 @@ export function KanbanBoard({
                 {user?.company && user.company !== "ALL"
                   ? `All ${user.company} Projects (${visibleProjects.length})`
                   : `All Projects (${visibleProjects.length})`}
+              </option>
+              <option value="NO_PROJECT">
+                ✨ No Project / General
               </option>
               {visibleProjects.map((p) => (
                 <option key={p.key} value={p.key}>

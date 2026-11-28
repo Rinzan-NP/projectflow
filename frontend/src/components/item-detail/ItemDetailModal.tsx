@@ -161,7 +161,8 @@ export function ItemDetailModal({
   }, [projectList, user]);
 
   const handleProjectChange = async (targetProjectId: string) => {
-    if (!targetProjectId || targetProjectId === item.projectId) return;
+    const currentId = item.projectId || "NONE";
+    if (targetProjectId === currentId) return;
     setIsChangingProject(true);
     try {
       const res = await fetch(`/api/items/${item.id}`, {
@@ -171,9 +172,19 @@ export function ItemDetailModal({
       });
       if (res.ok) {
         const updated = await res.json();
-        const targetProj = projectList.find((p) => p.id === targetProjectId);
-        if (targetProj && targetProj.stages && targetProj.stages.length > 0) {
-          setCurrentStages(targetProj.stages);
+        if (targetProjectId === "NONE") {
+          setCurrentStages([
+            { id: "stage_todo", name: "To Do", isDoneStage: false },
+            { id: "stage_in_progress", name: "In Progress", isDoneStage: false },
+            { id: "stage_in_review", name: "In Review", isDoneStage: false },
+            { id: "stage_done", name: "Done", isDoneStage: true },
+            { id: "stage_backlog", name: "Backlog", isDoneStage: false },
+          ]);
+        } else {
+          const targetProj = projectList.find((p) => p.id === targetProjectId);
+          if (targetProj && targetProj.stages && targetProj.stages.length > 0) {
+            setCurrentStages(targetProj.stages);
+          }
         }
         setStageId(updated.stageId);
         onUpdate(updated);
@@ -406,7 +417,7 @@ export function ItemDetailModal({
             {/* Project Indicator */}
             <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-muted text-[11px] font-semibold border text-muted-foreground" title="Assigned Project">
               <FolderKanban className="w-3.5 h-3.5 text-primary" />
-              <span>{item.project?.name || projectKey}</span>
+              <span>{item.project?.name || (item.projectId ? projectKey : `No Project (${item.company || "General"})`)}</span>
             </div>
             <span className="text-muted-foreground">•</span>
             {/* Quick Type Selector */}
@@ -1030,11 +1041,14 @@ export function ItemDetailModal({
               <div className="relative">
                 <select
                   disabled={isChangingProject}
-                  value={item.projectId || ""}
+                  value={item.projectId || "NONE"}
                   onChange={(e) => handleProjectChange(e.target.value)}
                   className="w-full h-8 text-xs bg-background border rounded px-2 font-medium cursor-pointer focus:ring-1 focus:ring-primary truncate"
                 >
-                  {!availableProjects.some((p) => p.id === item.projectId) && item.project && (
+                  <option value="NONE">
+                    ✨ No Project (General / {item.company || user?.company || "Company"})
+                  </option>
+                  {!availableProjects.some((p) => p.id === item.projectId) && item.project && item.projectId && (
                     <option value={item.projectId}>
                       {item.project.name} ({item.project.key})
                     </option>
@@ -1054,7 +1068,7 @@ export function ItemDetailModal({
                 Workflow Stage
               </label>
               <select
-                value={stageId}
+                value={stageId || ""}
                 onChange={(e) => {
                   const sId = e.target.value;
                   setStageId(sId);

@@ -14,6 +14,7 @@ def serialize_item(item: Item):
         "humanId": item.humanId,
         "itemNumber": item.itemNumber,
         "projectId": item.projectId,
+        "company": getattr(item, "company", None) or (item.project.company if item.project else None),
         "project": {
             "id": item.project.id,
             "key": item.project.key,
@@ -95,14 +96,17 @@ def get_all_items(
     search: Optional[str] = None,
     db: Session = Depends(get_db),
 ):
-    query = db.query(Item).join(Project, Item.projectId == Project.id)
+    query = db.query(Item).outerjoin(Project, Item.projectId == Project.id)
 
-    if projectId and projectId != "ALL":
+    if projectId in ["NONE", "NO_PROJECT"] or projectKey in ["NONE", "NO_PROJECT"]:
+        query = query.filter(Item.projectId == None)
+    elif projectId and projectId != "ALL":
         query = query.filter((Item.projectId == projectId) | (Project.key == projectId.upper()))
-    if projectKey and projectKey != "ALL":
+    elif projectKey and projectKey != "ALL":
         query = query.filter(Project.key == projectKey.upper())
+
     if company and company != "ALL":
-        query = query.filter(Project.company == company)
+        query = query.filter((Project.company == company) | (Item.company == company))
     if type and type != "ALL":
         query = query.filter(Item.type == type)
     if priority and priority != "ALL":
@@ -159,9 +163,70 @@ def get_project_items(
     items = query.order_by(Item.order.asc(), Item.createdAt.asc()).all()
     return [serialize_item(i) for i in items]
 
-@router.post("/api/projects/{id}/items", status_code=status.HTTP_201_CREATED)
-def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)):
-    project = db.query(Project).filter((Project.id == id) | (Project.key == id.upper())).first()
+def create_item_in_db(data: ItemCreate, project_id_or_key: Optional[str], db: Session):
+    is_standalone = (
+        not project_id_or_key
+        or str(project_id_or_key).upper() in ["NONE", "NO_PROJECT", "GENERAL", "GLOBAL", "STANDALONE"]
+    )
+
+    if is_standalone:
+        last_no_proj = db.query(Item).filter(Item.projectId == None).order_by(Item.itemNumber.desc()).first()
+        item_number = (last_no_proj.itemNumber + 1) if last_no_proj else 1
+        human_id = f"GEN-{item_number}"
+
+        stage = None
+        if data.stageId:
+            stage = db.query(Stage).filter(Stage.id == data.stageId).first()
+
+        target_stage_id = stage.id if stage else (data.stageId or "stage_todo")
+        last_item = db.query(Item).filter(Item.stageId == target_stage_id).order_by(Item.order.desc()).first()
+        order = (last_item.order + 1.0) if last_item else 1.0
+
+        is_done = (stage and stage.isDoneStage) or (data.stageId and "done" in str(data.stageId).lower())
+        completed_at = datetime.utcnow() if is_done else None
+
+        item = Item(
+            humanId=human_id,
+            itemNumber=item_number,
+            projectId=None,
+            company=data.company or "General",
+            stageId=target_stage_id,
+            type=data.type or "TASK",
+            title=data.title.strip(),
+            description=data.description,
+            priority=data.priority or "MEDIUM",
+            assignee=data.assignee,
+            reporter=data.reporter or "Rinzan",
+            dueDate=data.dueDate,
+            estimateHours=data.estimateHours,
+            order=order,
+            parentId=data.parentId,
+            milestoneId=data.milestoneId,
+            severity=data.severity,
+            stepsToReproduce=data.stepsToReproduce,
+            expectedResult=data.expectedResult,
+            actualResult=data.actualResult,
+            environment=data.environment,
+            source=data.source or "INTERNAL",
+            userStory=data.userStory,
+            acceptanceCriteria=data.acceptanceCriteria,
+            requestedBy=data.requestedBy,
+            completedAt=completed_at,
+        )
+        db.add(item)
+        db.flush()
+
+        log = ActivityLog(
+            itemId=item.id,
+            author=data.reporter or "Rinzan",
+            action="created this item (General / Standalone)",
+        )
+        db.add(log)
+        db.commit()
+        db.refresh(item)
+        return serialize_item(item)
+
+    project = db.query(Project).filter((Project.id == project_id_or_key) | (Project.key == project_id_or_key.upper())).first()
     if not project and data.parentId:
         parent = db.query(Item).filter(Item.id == data.parentId).first()
         if parent:
@@ -193,6 +258,7 @@ def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)
         humanId=human_id,
         itemNumber=item_number,
         projectId=project.id,
+        company=project.company,
         stageId=stage.id,
         type=data.type or "TASK",
         title=data.title.strip(),
@@ -242,6 +308,14 @@ def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)
     db.refresh(item)
     return serialize_item(item)
 
+@router.post("/api/projects/{id}/items", status_code=status.HTTP_201_CREATED)
+def create_project_item(id: str, data: ItemCreate, db: Session = Depends(get_db)):
+    return create_item_in_db(data, id, db)
+
+@router.post("/api/items", status_code=status.HTTP_201_CREATED)
+def create_item_direct(data: ItemCreate, db: Session = Depends(get_db)):
+    return create_item_in_db(data, data.projectId, db)
+
 @router.get("/api/items/{id}")
 def get_item(id: str, db: Session = Depends(get_db)):
     item = db.query(Item).filter((Item.id == id) | (Item.humanId == id.upper())).first()
@@ -250,6 +324,37 @@ def get_item(id: str, db: Session = Depends(get_db)):
     return serialize_item(item)
 
 def move_item_to_project(item: Item, target_proj_id_or_key: str, db: Session, author: Optional[str] = None):
+    # Check if target is "NONE" / "NO_PROJECT"
+    if not target_proj_id_or_key or str(target_proj_id_or_key).upper() in ["NONE", "NO_PROJECT", "GENERAL", "GLOBAL", "STANDALONE"]:
+        if item.projectId is None:
+            return item
+
+        old_proj_name = item.project.name if item.project else "Unknown"
+        old_human_id = item.humanId
+
+        last_no_proj = db.query(Item).filter(Item.projectId == None).order_by(Item.itemNumber.desc()).first()
+        item_number = (last_no_proj.itemNumber + 1) if last_no_proj else 1
+
+        item.projectId = None
+        item.itemNumber = item_number
+        item.humanId = f"GEN-{item_number}"
+        if not item.company and item.project:
+            item.company = item.project.company or "General"
+
+        for sub in item.subtasks:
+            sub.projectId = None
+            sub.company = item.company
+
+        log = ActivityLog(
+            itemId=item.id,
+            author=author or item.reporter or "User",
+            action="moved project",
+            fromValue=f"{old_proj_name} ({old_human_id})",
+            toValue=f"No Project ({item.humanId})",
+        )
+        db.add(log)
+        return item
+
     target_proj = db.query(Project).filter(
         (Project.id == target_proj_id_or_key) | (Project.key == target_proj_id_or_key.upper())
     ).first()
@@ -259,12 +364,13 @@ def move_item_to_project(item: Item, target_proj_id_or_key: str, db: Session, au
     if target_proj.id == item.projectId:
         return item
 
-    old_proj_name = item.project.name if item.project else "Unknown"
+    old_proj_name = item.project.name if item.project else "No Project"
     old_human_id = item.humanId
 
     # 1. Update project and humanId
     target_proj.itemCounter += 1
     item.projectId = target_proj.id
+    item.company = target_proj.company
     item.itemNumber = target_proj.itemCounter
     item.humanId = f"{target_proj.key}-{item.itemNumber}"
 
@@ -333,8 +439,11 @@ def update_item(id: str, data: ItemUpdate, db: Session = Depends(get_db)):
     # Handle project move if projectId is provided
     if "projectId" in update_dict:
         target_proj_val = update_dict.pop("projectId")
-        if target_proj_val and target_proj_val != item.projectId:
-            move_item_to_project(item, target_proj_val, db, author=item.reporter)
+        if target_proj_val is not None:
+            if target_proj_val != (item.projectId or ""):
+                move_item_to_project(item, target_proj_val, db, author=item.reporter)
+        elif item.projectId is not None:
+            move_item_to_project(item, "NONE", db, author=item.reporter)
 
     # If stageId changed, check done status & log activity
     if "stageId" in update_dict and update_dict["stageId"] != item.stageId:
