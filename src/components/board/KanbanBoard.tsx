@@ -282,8 +282,9 @@ export function KanbanBoard({
           map["stage_todo"].push(item);
         }
       } else {
-        if (item.stageId && map[item.stageId]) {
-          map[item.stageId].push(item);
+        const sId = item.stageId || activeStages[0]?.id;
+        if (sId && map[sId]) {
+          map[sId].push(item);
         } else if (activeStages[0]) {
           map[activeStages[0].id].push(item);
         }

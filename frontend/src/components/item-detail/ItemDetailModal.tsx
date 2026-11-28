@@ -71,7 +71,7 @@ export function ItemDetailModal({
   const [description, setDescription] = useState(item.description || "");
   const [type, setType] = useState<ItemType>(item.type);
   const [priority, setPriority] = useState<Priority>(item.priority);
-  const [stageId, setStageId] = useState(item.stageId);
+  const [stageId, setStageId] = useState<string>(item.stageId || "");
   const [assignee, setAssignee] = useState(item.assignee || "");
   const [dueDate, setDueDate] = useState(
     item.dueDate ? new Date(item.dueDate).toISOString().split("T")[0] : ""
@@ -140,7 +140,7 @@ export function ItemDetailModal({
     setDescription(item.description || "");
     setType(item.type);
     setPriority(item.priority);
-    setStageId(item.stageId);
+    setStageId(item.stageId || "");
     setAssignee(item.assignee || "");
     setDueDate(item.dueDate ? new Date(item.dueDate).toISOString().split("T")[0] : "");
     setEstimateHours(item.estimateHours != null ? String(item.estimateHours) : "");
@@ -1049,7 +1049,7 @@ export function ItemDetailModal({
                     ✨ No Project (General / {item.company || user?.company || "Company"})
                   </option>
                   {!availableProjects.some((p) => p.id === item.projectId) && item.project && item.projectId && (
-                    <option value={item.projectId}>
+                    <option value={item.projectId || ""}>
                       {item.project.name} ({item.project.key})
                     </option>
                   )}
